@@ -1,3 +1,16 @@
+# Intellij
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Vim
+*.swp
+
+# Mac
+.DS_Store
+
+# jvm specific
 *.class
 *.log
 
