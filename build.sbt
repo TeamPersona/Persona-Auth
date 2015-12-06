@@ -9,6 +9,7 @@ libraryDependencies ++= {
   val akkaStreamV = "2.0-M2"
   val scalaTestV  = "3.0.0-M1"
   val scalaMockV = "3.2.2"
+  val nimbusJwtV = "4.9"
 
   Seq(
     "com.typesafe.akka" %% "akka-stream-experimental"          % akkaStreamV,
@@ -17,7 +18,8 @@ libraryDependencies ++= {
     "com.typesafe.akka" %% "akka-http-spray-json-experimental" % akkaStreamV,
     "com.typesafe.akka" %% "akka-http-testkit-experimental"    % akkaStreamV,
     "org.scalatest" %% "scalatest" % scalaTestV % "test",
-    "org.scalamock" %% "scalamock-scalatest-support" % scalaMockV % "test"
+    "org.scalamock" %% "scalamock-scalatest-support" % scalaMockV % "test",
+    "com.nimbusds" % "nimbus-jose-jwt" % nimbusJwtV
   )
 }
 
