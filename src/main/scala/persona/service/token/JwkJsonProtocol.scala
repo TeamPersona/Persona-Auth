@@ -11,6 +11,8 @@ import spray.json._
 
 sealed trait JWKJsonUtils extends DefaultJsonProtocol {
 
+  // Helper methods
+
   implicit object KeyOperationJsonFormat extends RootJsonFormat[KeyOperation] {
 
     def write(keyOperation: KeyOperation): JsValue = JsString(keyOperation.identifier)
@@ -34,6 +36,16 @@ sealed trait JWKJsonUtils extends DefaultJsonProtocol {
     def read(value: JsValue): Base64 = value match {
       case JsString(base64) => new Base64(base64)
       case _ => throw new DeserializationException("Invalid Base64")
+    }
+  }
+
+  def filterNullElements(elements: JsField*) = {
+    elements.filter { element =>
+      // Filter out null entries and empty arrays
+      element._2 match {
+        case JsNull | JsArray.empty => false
+        case _ => true
+      }
     }
   }
 
@@ -72,7 +84,7 @@ sealed trait JWKJsonUtils extends DefaultJsonProtocol {
 
   def writeKeyOperations(jwk: JWK): JsField = {
     val jsonKeyOperations = Option(jwk.getKeyOperations).map { keyOperations =>
-      JsArray(keyOperations.toVector.toJson)
+      keyOperations.toVector.toJson
     } getOrElse {
       JsNull
     }
@@ -162,7 +174,7 @@ sealed trait JWKJsonUtils extends DefaultJsonProtocol {
 
   def writeX509CertChain(jwk: JWK): JsField = {
     val jsonX509CertChain = Option(jwk.getX509CertChain).map { X509CertChain =>
-      JsArray(X509CertChain.toVector.toJson)
+      X509CertChain.toVector.toJson
     } getOrElse {
       JsNull
     }
@@ -240,20 +252,20 @@ trait JwkJsonProtocol {
     }
 
     def write(ecKey: ECKey): JsValue = {
-      JsObject(
-        writeKeyType(ecKey),
-        writeKeyUse(ecKey),
-        writeKeyOperations(ecKey),
-        writeAlgorithm(ecKey),
-        writeKeyId(ecKey),
-        writeX509CertUrl(ecKey),
-        writeX509CertThumbprint(ecKey),
-        writeX509CertChain(ecKey),
-        writeCurve(ecKey),
-        writeXCoordinate(ecKey),
-        writeYCoordinate(ecKey),
-        writeDCoordinate(ecKey)
-      )
+      val elements = filterNullElements(writeKeyType(ecKey),
+                                        writeKeyUse(ecKey),
+                                        writeKeyOperations(ecKey),
+                                        writeAlgorithm(ecKey),
+                                        writeKeyId(ecKey),
+                                        writeX509CertUrl(ecKey),
+                                        writeX509CertThumbprint(ecKey),
+                                        writeX509CertChain(ecKey),
+                                        writeCurve(ecKey),
+                                        writeXCoordinate(ecKey),
+                                        writeYCoordinate(ecKey),
+                                        writeDCoordinate(ecKey))
+
+      JsObject(Map(elements: _*))
     }
 
     def read(ecKey: JsValue): ECKey = {
@@ -464,7 +476,7 @@ trait JwkJsonProtocol {
 
     def writeOtherPrimes(rsaKey: RSAKey): JsField = {
       val jsonOth = Option(rsaKey.getOtherPrimes).map { otherPrimes =>
-        JsArray(otherPrimes.toVector.toJson)
+        otherPrimes.toVector.toJson
       } getOrElse {
         JsNull
       }
@@ -481,25 +493,25 @@ trait JwkJsonProtocol {
     }
 
     def write(rsaKey: RSAKey): JsValue = {
-      JsObject(
-        writeKeyType(rsaKey),
-        writeKeyUse(rsaKey),
-        writeKeyOperations(rsaKey),
-        writeAlgorithm(rsaKey),
-        writeKeyId(rsaKey),
-        writeX509CertUrl(rsaKey),
-        writeX509CertThumbprint(rsaKey),
-        writeX509CertChain(rsaKey),
-        writeModulus(rsaKey),
-        writePublicExponent(rsaKey),
-        writePrivateExponent(rsaKey),
-        writeFirstPrimeFactor(rsaKey),
-        writeSecondPrimeFactor(rsaKey),
-        writeFirstFactorCRTExponent(rsaKey),
-        writeSecondFactorCRTExponent(rsaKey),
-        writeFirstCRTCoefficient(rsaKey),
-        writeOtherPrimes(rsaKey)
-      )
+      val elements = filterNullElements(writeKeyType(rsaKey),
+                                        writeKeyUse(rsaKey),
+                                        writeKeyOperations(rsaKey),
+                                        writeAlgorithm(rsaKey),
+                                        writeKeyId(rsaKey),
+                                        writeX509CertUrl(rsaKey),
+                                        writeX509CertThumbprint(rsaKey),
+                                        writeX509CertChain(rsaKey),
+                                        writeModulus(rsaKey),
+                                        writePublicExponent(rsaKey),
+                                        writePrivateExponent(rsaKey),
+                                        writeFirstPrimeFactor(rsaKey),
+                                        writeSecondPrimeFactor(rsaKey),
+                                        writeFirstFactorCRTExponent(rsaKey),
+                                        writeSecondFactorCRTExponent(rsaKey),
+                                        writeFirstCRTCoefficient(rsaKey),
+                                        writeOtherPrimes(rsaKey))
+
+      JsObject(Map(elements: _*))
     }
 
     def read(rsaKey: JsValue): RSAKey = {
@@ -562,7 +574,7 @@ trait JwkJsonProtocol {
 
   implicit object JWKSetJsonFormat extends RootJsonFormat[JWKSet] with DefaultJsonProtocol {
 
-    def write(jwkSet: JWKSet): JsValue = JsArray(jwkSet.getKeys.toVector.toJson)
+    def write(jwkSet: JWKSet): JsValue = JsObject("keys" -> jwkSet.getKeys.toVector.toJson)
 
     def read(jwkSet: JsValue): JWKSet = {
       jwkSet.asJsObject.getFields("keys") match {

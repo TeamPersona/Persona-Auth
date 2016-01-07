@@ -3,9 +3,11 @@ package persona.service.token
 import java.net.URI
 
 import com.nimbusds.jose.JWSAlgorithm
+import com.nimbusds.jose.jwk.RSAKey.OtherPrimesInfo
 import com.nimbusds.jose.jwk._
 import com.nimbusds.jose.util.{Base64URL, Base64}
 import org.scalatest.{Matchers, WordSpec}
+import scala.collection.JavaConversions._
 import spray.json._
 
 class JwkJsonProtocolTest extends WordSpec with Matchers with JwkJsonProtocol {
@@ -16,8 +18,8 @@ class JwkJsonProtocolTest extends WordSpec with Matchers with JwkJsonProtocol {
         """
         {
           "kty" : "RSA",
-          "n"   : "0vx7agoebGcQSuuPiLJXZptN9nndrQmbXEps2aiAFbWhM78LhWx4cbbfAAtVT86zwu1RK7aPFFxuhDR1L6tSoc_BJECPebWKRXjBZCiFV4n3oknjhMstn64tZ_2W-5JsGY4Hc5n9yBXArwl93lqt7_RN5w6Cf0h4QyQ5v-65YGjQR0_FDW2QvzqY368QQMicAtaSqzs8KJZgnYb9c7d0zgdAZHzu6qMQvRL5hajrn1n91CbOpbISD08qNLyrdkt-bFTWhAI4vMQFh6WeZu0fM4lFd2NcRwr3XPksINHaQ-G_xBniIqbw0Ls1jF44-csFCur-kEgU8awapJzKnqDKgw",
-          "e"   : "AQAB"
+          "n"   : "n",
+          "e"   : "e"
         }
         """.parseJson
 
@@ -27,14 +29,27 @@ class JwkJsonProtocolTest extends WordSpec with Matchers with JwkJsonProtocol {
       jwk shouldBe a[RSAKey]
     }
 
+    "write a jwk of type rsa" in {
+      val jwk = new RSAKey.Builder(new Base64URL("n"),
+                                   new Base64URL("e")
+                                  )
+                                  .build
+
+      val json = jwk.toJson.asJsObject
+
+      val kty = json.getFields("kty")
+      kty should have length 1
+      kty should contain theSameElementsAs Seq(JsString("RSA"))
+    }
+
     "parse a jwk of type ec" in {
       val json =
         """
         {
           "kty" : "EC",
           "crv" : "P-256",
-          "x"   : "MKBCTNIcKUSDii11ySs3526iDZ8AiTo7Tu6KPAqv7D4",
-          "y"   : "4Etl6SRW2YiLUrN5vfvVHuhp7x8PxltmWWlbbM4IFyM"
+          "x"   : "x",
+          "y"   : "y"
         }
         """.parseJson
 
@@ -42,6 +57,20 @@ class JwkJsonProtocolTest extends WordSpec with Matchers with JwkJsonProtocol {
 
       jwk.getKeyType shouldBe KeyType.EC
       jwk shouldBe an[ECKey]
+    }
+
+    "write a jwk of type ec" in {
+      val jwk = new ECKey.Builder(ECKey.Curve.P_256,
+                                  new Base64URL("x"),
+                                  new Base64URL("y")
+                                 )
+                                 .build
+
+      val json = jwk.toJson.asJsObject
+
+      val kty = json.getFields("kty")
+      kty should have length 1
+      kty should contain theSameElementsAs Seq(JsString("EC"))
     }
 
     // KeyOperations and KeyUse cannot be set at the same time
@@ -53,14 +82,29 @@ class JwkJsonProtocolTest extends WordSpec with Matchers with JwkJsonProtocol {
           "kty" : "EC",
           "use" : "enc",
           "crv" : "P-256",
-          "x"   : "MKBCTNIcKUSDii11ySs3526iDZ8AiTo7Tu6KPAqv7D4",
-          "y"   : "4Etl6SRW2YiLUrN5vfvVHuhp7x8PxltmWWlbbM4IFyM"
+          "x"   : "x",
+          "y"   : "y"
         }
         """.parseJson
 
       val jwk = json.convertTo[JWK]
 
       jwk.getKeyUse shouldBe KeyUse.ENCRYPTION
+    }
+
+    "write a jwk with KeyUse" in {
+      val ecKey = new ECKey.Builder(ECKey.Curve.P_256,
+                                    new Base64URL("x"),
+                                    new Base64URL("y")
+                                   )
+                                   .keyUse(KeyUse.SIGNATURE)
+                                   .build
+
+      val json = ecKey.toJson.asJsObject
+
+      val use = json.getFields("use")
+      use should have length 1
+      use should contain theSameElementsAs Seq(JsString(KeyUse.SIGNATURE.toString))
     }
 
     "parse a jwk with all optional parameters except KeyUse" in {
@@ -81,8 +125,8 @@ class JwkJsonProtocolTest extends WordSpec with Matchers with JwkJsonProtocol {
             "chain2"
           ],
           "crv" : "P-256",
-          "x"   : "MKBCTNIcKUSDii11ySs3526iDZ8AiTo7Tu6KPAqv7D4",
-          "y"   : "4Etl6SRW2YiLUrN5vfvVHuhp7x8PxltmWWlbbM4IFyM"
+          "x"   : "x",
+          "y"   : "y"
         }
         """.parseJson
 
@@ -96,20 +140,60 @@ class JwkJsonProtocolTest extends WordSpec with Matchers with JwkJsonProtocol {
       jwk.getX509CertChain should contain theSameElementsAs List(new Base64("chain1"), new Base64("chain2"))
     }
 
+    "write a jwk with all optional parameters except KeyUse" in {
+      val ecKey = new ECKey.Builder(ECKey.Curve.P_256,
+                                    new Base64URL("x"),
+                                    new Base64URL("y")
+                                   )
+                                   .keyOperations(Set(KeyOperation.ENCRYPT, KeyOperation.DECRYPT))
+                                   .algorithm(JWSAlgorithm.RS256)
+                                   .keyID("KeyId")
+                                   .x509CertURL(new URI("http://www.test.com"))
+                                   .x509CertThumbprint(new Base64URL("thumbprint"))
+                                   .x509CertChain(List(new Base64("chain1"), new Base64("chain2")))
+                                   .build
+
+      val json = ecKey.toJson.asJsObject
+
+      val keyOps = json.getFields("key_ops")
+      keyOps should have length 1
+      keyOps should contain theSameElementsAs Seq(JsArray(JsString("encrypt"), JsString("decrypt")))
+
+      val alg = json.getFields("alg")
+      alg should have length 1
+      alg should contain theSameElementsAs Seq(JsString("RS256"))
+
+      val kid = json.getFields("kid")
+      kid should have length 1
+      kid should contain theSameElementsAs Seq(JsString("KeyId"))
+
+      val x5u = json.getFields("x5u")
+      x5u should have length 1
+      x5u should contain theSameElementsAs Seq(JsString("http://www.test.com"))
+
+      val x5t = json.getFields("x5t")
+      x5t should have length 1
+      x5t should contain theSameElementsAs Seq(JsString("thumbprint"))
+
+      val x5c = json.getFields("x5c")
+      x5c should have length 1
+      x5c should contain theSameElementsAs Seq(JsArray(JsString("chain1"), JsString("chain2")))
+    }
+
     "parse a public RSAKey" in {
       val json =
         """
         {
           "kty" : "RSA",
-          "n"   : "0vx7agoebGcQSuuPiLJXZptN9nndrQmbXEps2aiAFbWhM78LhWx4cbbfAAtVT86zwu1RK7aPFFxuhDR1L6tSoc_BJECPebWKRXjBZCiFV4n3oknjhMstn64tZ_2W-5JsGY4Hc5n9yBXArwl93lqt7_RN5w6Cf0h4QyQ5v-65YGjQR0_FDW2QvzqY368QQMicAtaSqzs8KJZgnYb9c7d0zgdAZHzu6qMQvRL5hajrn1n91CbOpbISD08qNLyrdkt-bFTWhAI4vMQFh6WeZu0fM4lFd2NcRwr3XPksINHaQ-G_xBniIqbw0Ls1jF44-csFCur-kEgU8awapJzKnqDKgw",
-          "e"   : "AQAB"
+          "n"   : "n",
+          "e"   : "e"
         }
         """.parseJson
 
       val rsaKey = json.convertTo[RSAKey]
 
-      rsaKey.getModulus shouldBe new Base64URL("0vx7agoebGcQSuuPiLJXZptN9nndrQmbXEps2aiAFbWhM78LhWx4cbbfAAtVT86zwu1RK7aPFFxuhDR1L6tSoc_BJECPebWKRXjBZCiFV4n3oknjhMstn64tZ_2W-5JsGY4Hc5n9yBXArwl93lqt7_RN5w6Cf0h4QyQ5v-65YGjQR0_FDW2QvzqY368QQMicAtaSqzs8KJZgnYb9c7d0zgdAZHzu6qMQvRL5hajrn1n91CbOpbISD08qNLyrdkt-bFTWhAI4vMQFh6WeZu0fM4lFd2NcRwr3XPksINHaQ-G_xBniIqbw0Ls1jF44-csFCur-kEgU8awapJzKnqDKgw")
-      rsaKey.getPublicExponent shouldBe new Base64URL("AQAB")
+      rsaKey.getModulus shouldBe new Base64URL("n")
+      rsaKey.getPublicExponent shouldBe new Base64URL("e")
     }
 
     "parse a private first representation RSAKey" in {
@@ -117,17 +201,17 @@ class JwkJsonProtocolTest extends WordSpec with Matchers with JwkJsonProtocol {
         """
         {
           "kty" : "RSA",
-          "n"   : "0vx7agoebGcQSuuPiLJXZptN9nndrQmbXEps2aiAFbWhM78LhWx4cbbfAAtVT86zwu1RK7aPFFxuhDR1L6tSoc_BJECPebWKRXjBZCiFV4n3oknjhMstn64tZ_2W-5JsGY4Hc5n9yBXArwl93lqt7_RN5w6Cf0h4QyQ5v-65YGjQR0_FDW2QvzqY368QQMicAtaSqzs8KJZgnYb9c7d0zgdAZHzu6qMQvRL5hajrn1n91CbOpbISD08qNLyrdkt-bFTWhAI4vMQFh6WeZu0fM4lFd2NcRwr3XPksINHaQ-G_xBniIqbw0Ls1jF44-csFCur-kEgU8awapJzKnqDKgw",
-          "e"   : "AQAB",
-          "d"   : "X4cTteJY_gn4FYPsXB8rdXix5vwsg1FLN5E3EaG6RJoVH-HLLKD9M7dx5oo7GURknchnrRweUkC7hT5fJLM0WbFAKNLWY2vv7B6NqXSzUvxT0_YSfqijwp3RTzlBaCxWp4doFk5N2o8Gy_nHNKroADIkJ46pRUohsXywbReAdYaMwFs9tv8d_cPVY3i07a3t8MN6TNwm0dSawm9v47UiCl3Sk5ZiG7xojPLu4sbg1U2jx4IBTNBznbJSzFHK66jT8bgkuqsk0GjskDJk19Z4qwjwbsnn4j2WBii3RL-Us2lGVkY8fkFzme1z0HbIkfz0Y6mqnOYtqc0X4jfcKoAC8Q"
+          "n"   : "n",
+          "e"   : "e",
+          "d"   : "d"
         }
         """.parseJson
 
       val rsaKey = json.convertTo[RSAKey]
 
-      rsaKey.getModulus shouldBe new Base64URL("0vx7agoebGcQSuuPiLJXZptN9nndrQmbXEps2aiAFbWhM78LhWx4cbbfAAtVT86zwu1RK7aPFFxuhDR1L6tSoc_BJECPebWKRXjBZCiFV4n3oknjhMstn64tZ_2W-5JsGY4Hc5n9yBXArwl93lqt7_RN5w6Cf0h4QyQ5v-65YGjQR0_FDW2QvzqY368QQMicAtaSqzs8KJZgnYb9c7d0zgdAZHzu6qMQvRL5hajrn1n91CbOpbISD08qNLyrdkt-bFTWhAI4vMQFh6WeZu0fM4lFd2NcRwr3XPksINHaQ-G_xBniIqbw0Ls1jF44-csFCur-kEgU8awapJzKnqDKgw")
-      rsaKey.getPublicExponent shouldBe new Base64URL("AQAB")
-      rsaKey.getPrivateExponent shouldBe new Base64URL("X4cTteJY_gn4FYPsXB8rdXix5vwsg1FLN5E3EaG6RJoVH-HLLKD9M7dx5oo7GURknchnrRweUkC7hT5fJLM0WbFAKNLWY2vv7B6NqXSzUvxT0_YSfqijwp3RTzlBaCxWp4doFk5N2o8Gy_nHNKroADIkJ46pRUohsXywbReAdYaMwFs9tv8d_cPVY3i07a3t8MN6TNwm0dSawm9v47UiCl3Sk5ZiG7xojPLu4sbg1U2jx4IBTNBznbJSzFHK66jT8bgkuqsk0GjskDJk19Z4qwjwbsnn4j2WBii3RL-Us2lGVkY8fkFzme1z0HbIkfz0Y6mqnOYtqc0X4jfcKoAC8Q")
+      rsaKey.getModulus shouldBe new Base64URL("n")
+      rsaKey.getPublicExponent shouldBe new Base64URL("e")
+      rsaKey.getPrivateExponent shouldBe new Base64URL("d")
     }
 
     "parse a private second representation RSAKey" in {
@@ -135,18 +219,18 @@ class JwkJsonProtocolTest extends WordSpec with Matchers with JwkJsonProtocol {
         """
         {
           "kty" : "RSA",
-          "n"   : "0vx7agoebGcQSuuPiLJXZptN9nndrQmbXEps2aiAFbWhM78LhWx4cbbfAAtVT86zwu1RK7aPFFxuhDR1L6tSoc_BJECPebWKRXjBZCiFV4n3oknjhMstn64tZ_2W-5JsGY4Hc5n9yBXArwl93lqt7_RN5w6Cf0h4QyQ5v-65YGjQR0_FDW2QvzqY368QQMicAtaSqzs8KJZgnYb9c7d0zgdAZHzu6qMQvRL5hajrn1n91CbOpbISD08qNLyrdkt-bFTWhAI4vMQFh6WeZu0fM4lFd2NcRwr3XPksINHaQ-G_xBniIqbw0Ls1jF44-csFCur-kEgU8awapJzKnqDKgw",
-          "e"   : "AQAB",
-          "p"   : "83i-7IvMGXoMXCskv73TKr8637FiO7Z27zv8oj6pbWUQyLPQBQxtPVnwD20R-60eTDmD2ujnMt5PoqMrm8RfmNhVWDtjjMmCMjOpSXicFHj7XOuVIYQyqVWlWEh6dN36GVZYk93N8Bc9vY41xy8B9RzzOGVQzXvNEvn7O0nVbfs",
-          "q"   : "3dfOR9cuYq-0S-mkFLzgItgMEfFzB2q3hWehMuG0oCuqnb3vobLyumqjVZQO1dIrdwgTnCdpYzBcOfW5r370AFXjiWft_NGEiovonizhKpo9VVS78TzFgxkIdrecRezsZ-1kYd_s1qDbxtkDEgfAITAG9LUnADun4vIcb6yelxk",
-          "dp"  : "G4sPXkc6Ya9y8oJW9_ILj4xuppu0lzi_H7VTkS8xj5SdX3coE0oimYwxIi2emTAue0UOa5dpgFGyBJ4c8tQ2VF402XRugKDTP8akYhFo5tAA77Qe_NmtuYZc3C3m3I24G2GvR5sSDxUyAN2zq8Lfn9EUms6rY3Ob8YeiKkTiBj0",
-          "dq"  : "s9lAH9fggBsoFR8Oac2R_E2gw282rT2kGOAhvIllETE1efrA6huUUvMfBcMpn8lqeW6vzznYY5SSQF7pMdC_agI3nG8Ibp1BUb0JUiraRNqUfLhcQb_d9GF4Dh7e74WbRsobRonujTYN1xCaP6TO61jvWrX-L18txXw494Q_cgk",
-          "qi"  : "GyM_p6JrXySiz1toFgKbWV-JdI3jQ4ypu9rbMWx3rQJBfmt0FoYzgUIZEVFEcOqwemRN81zoDAaa-Bk0KWNGDjJHZDdDmFhW3AN7lI-puxk_mHZGJ11rxyR8O55XLSe3SPmRfKwZI6yU24ZxvQKFYItdldUKGzO6Ia6zTKhAVRU",
+          "n"   : "n",
+          "e"   : "e",
+          "p"   : "p",
+          "q"   : "q",
+          "dp"  : "dp",
+          "dq"  : "dq",
+          "qi"  : "qi",
           "oth" : [
              {
-               "r" : "abc",
-               "d" : "def",
-               "t" : "ghi"
+               "r" : "r",
+               "d" : "d",
+               "t" : "t"
              }
            ]
         }
@@ -154,20 +238,20 @@ class JwkJsonProtocolTest extends WordSpec with Matchers with JwkJsonProtocol {
 
       val rsaKey = json.convertTo[RSAKey]
 
-      rsaKey.getModulus shouldBe new Base64URL("0vx7agoebGcQSuuPiLJXZptN9nndrQmbXEps2aiAFbWhM78LhWx4cbbfAAtVT86zwu1RK7aPFFxuhDR1L6tSoc_BJECPebWKRXjBZCiFV4n3oknjhMstn64tZ_2W-5JsGY4Hc5n9yBXArwl93lqt7_RN5w6Cf0h4QyQ5v-65YGjQR0_FDW2QvzqY368QQMicAtaSqzs8KJZgnYb9c7d0zgdAZHzu6qMQvRL5hajrn1n91CbOpbISD08qNLyrdkt-bFTWhAI4vMQFh6WeZu0fM4lFd2NcRwr3XPksINHaQ-G_xBniIqbw0Ls1jF44-csFCur-kEgU8awapJzKnqDKgw")
-      rsaKey.getPublicExponent shouldBe new Base64URL("AQAB")
-      rsaKey.getFirstPrimeFactor shouldBe new Base64URL("83i-7IvMGXoMXCskv73TKr8637FiO7Z27zv8oj6pbWUQyLPQBQxtPVnwD20R-60eTDmD2ujnMt5PoqMrm8RfmNhVWDtjjMmCMjOpSXicFHj7XOuVIYQyqVWlWEh6dN36GVZYk93N8Bc9vY41xy8B9RzzOGVQzXvNEvn7O0nVbfs")
-      rsaKey.getSecondPrimeFactor shouldBe new Base64URL("3dfOR9cuYq-0S-mkFLzgItgMEfFzB2q3hWehMuG0oCuqnb3vobLyumqjVZQO1dIrdwgTnCdpYzBcOfW5r370AFXjiWft_NGEiovonizhKpo9VVS78TzFgxkIdrecRezsZ-1kYd_s1qDbxtkDEgfAITAG9LUnADun4vIcb6yelxk")
-      rsaKey.getFirstFactorCRTExponent shouldBe new Base64URL("G4sPXkc6Ya9y8oJW9_ILj4xuppu0lzi_H7VTkS8xj5SdX3coE0oimYwxIi2emTAue0UOa5dpgFGyBJ4c8tQ2VF402XRugKDTP8akYhFo5tAA77Qe_NmtuYZc3C3m3I24G2GvR5sSDxUyAN2zq8Lfn9EUms6rY3Ob8YeiKkTiBj0")
-      rsaKey.getSecondFactorCRTExponent shouldBe new Base64URL("s9lAH9fggBsoFR8Oac2R_E2gw282rT2kGOAhvIllETE1efrA6huUUvMfBcMpn8lqeW6vzznYY5SSQF7pMdC_agI3nG8Ibp1BUb0JUiraRNqUfLhcQb_d9GF4Dh7e74WbRsobRonujTYN1xCaP6TO61jvWrX-L18txXw494Q_cgk")
-      rsaKey.getFirstCRTCoefficient shouldBe new Base64URL("GyM_p6JrXySiz1toFgKbWV-JdI3jQ4ypu9rbMWx3rQJBfmt0FoYzgUIZEVFEcOqwemRN81zoDAaa-Bk0KWNGDjJHZDdDmFhW3AN7lI-puxk_mHZGJ11rxyR8O55XLSe3SPmRfKwZI6yU24ZxvQKFYItdldUKGzO6Ia6zTKhAVRU")
+      rsaKey.getModulus shouldBe new Base64URL("n")
+      rsaKey.getPublicExponent shouldBe new Base64URL("e")
+      rsaKey.getFirstPrimeFactor shouldBe new Base64URL("p")
+      rsaKey.getSecondPrimeFactor shouldBe new Base64URL("q")
+      rsaKey.getFirstFactorCRTExponent shouldBe new Base64URL("dp")
+      rsaKey.getSecondFactorCRTExponent shouldBe new Base64URL("dq")
+      rsaKey.getFirstCRTCoefficient shouldBe new Base64URL("qi")
       rsaKey.getOtherPrimes should have size 1
 
       val otherPrime = rsaKey.getOtherPrimes.get(0)
 
-      otherPrime.getPrimeFactor shouldBe new Base64URL("abc")
-      otherPrime.getFactorCRTExponent shouldBe new Base64URL("def")
-      otherPrime.getFactorCRTCoefficient shouldBe new Base64URL("ghi")
+      otherPrime.getPrimeFactor shouldBe new Base64URL("r")
+      otherPrime.getFactorCRTExponent shouldBe new Base64URL("d")
+      otherPrime.getFactorCRTCoefficient shouldBe new Base64URL("t")
     }
 
     "parse a private first and second representation RSAKey" in {
@@ -175,19 +259,19 @@ class JwkJsonProtocolTest extends WordSpec with Matchers with JwkJsonProtocol {
         """
         {
           "kty" : "RSA",
-          "n"   : "0vx7agoebGcQSuuPiLJXZptN9nndrQmbXEps2aiAFbWhM78LhWx4cbbfAAtVT86zwu1RK7aPFFxuhDR1L6tSoc_BJECPebWKRXjBZCiFV4n3oknjhMstn64tZ_2W-5JsGY4Hc5n9yBXArwl93lqt7_RN5w6Cf0h4QyQ5v-65YGjQR0_FDW2QvzqY368QQMicAtaSqzs8KJZgnYb9c7d0zgdAZHzu6qMQvRL5hajrn1n91CbOpbISD08qNLyrdkt-bFTWhAI4vMQFh6WeZu0fM4lFd2NcRwr3XPksINHaQ-G_xBniIqbw0Ls1jF44-csFCur-kEgU8awapJzKnqDKgw",
-          "e"   : "AQAB",
-          "d"   : "X4cTteJY_gn4FYPsXB8rdXix5vwsg1FLN5E3EaG6RJoVH-HLLKD9M7dx5oo7GURknchnrRweUkC7hT5fJLM0WbFAKNLWY2vv7B6NqXSzUvxT0_YSfqijwp3RTzlBaCxWp4doFk5N2o8Gy_nHNKroADIkJ46pRUohsXywbReAdYaMwFs9tv8d_cPVY3i07a3t8MN6TNwm0dSawm9v47UiCl3Sk5ZiG7xojPLu4sbg1U2jx4IBTNBznbJSzFHK66jT8bgkuqsk0GjskDJk19Z4qwjwbsnn4j2WBii3RL-Us2lGVkY8fkFzme1z0HbIkfz0Y6mqnOYtqc0X4jfcKoAC8Q",
-          "p"   : "83i-7IvMGXoMXCskv73TKr8637FiO7Z27zv8oj6pbWUQyLPQBQxtPVnwD20R-60eTDmD2ujnMt5PoqMrm8RfmNhVWDtjjMmCMjOpSXicFHj7XOuVIYQyqVWlWEh6dN36GVZYk93N8Bc9vY41xy8B9RzzOGVQzXvNEvn7O0nVbfs",
-          "q"   : "3dfOR9cuYq-0S-mkFLzgItgMEfFzB2q3hWehMuG0oCuqnb3vobLyumqjVZQO1dIrdwgTnCdpYzBcOfW5r370AFXjiWft_NGEiovonizhKpo9VVS78TzFgxkIdrecRezsZ-1kYd_s1qDbxtkDEgfAITAG9LUnADun4vIcb6yelxk",
-          "dp"  : "G4sPXkc6Ya9y8oJW9_ILj4xuppu0lzi_H7VTkS8xj5SdX3coE0oimYwxIi2emTAue0UOa5dpgFGyBJ4c8tQ2VF402XRugKDTP8akYhFo5tAA77Qe_NmtuYZc3C3m3I24G2GvR5sSDxUyAN2zq8Lfn9EUms6rY3Ob8YeiKkTiBj0",
-          "dq"  : "s9lAH9fggBsoFR8Oac2R_E2gw282rT2kGOAhvIllETE1efrA6huUUvMfBcMpn8lqeW6vzznYY5SSQF7pMdC_agI3nG8Ibp1BUb0JUiraRNqUfLhcQb_d9GF4Dh7e74WbRsobRonujTYN1xCaP6TO61jvWrX-L18txXw494Q_cgk",
-          "qi"  : "GyM_p6JrXySiz1toFgKbWV-JdI3jQ4ypu9rbMWx3rQJBfmt0FoYzgUIZEVFEcOqwemRN81zoDAaa-Bk0KWNGDjJHZDdDmFhW3AN7lI-puxk_mHZGJ11rxyR8O55XLSe3SPmRfKwZI6yU24ZxvQKFYItdldUKGzO6Ia6zTKhAVRU",
+          "n"   : "n",
+          "e"   : "e",
+          "d"   : "d",
+          "p"   : "p",
+          "q"   : "q",
+          "dp"  : "dp",
+          "dq"  : "dq",
+          "qi"  : "qi",
           "oth" : [
              {
-               "r" : "abc",
-               "d" : "def",
-               "t" : "ghi"
+               "r" : "r",
+               "d" : "d",
+               "t" : "t"
              }
            ]
         }
@@ -195,21 +279,79 @@ class JwkJsonProtocolTest extends WordSpec with Matchers with JwkJsonProtocol {
 
       val rsaKey = json.convertTo[RSAKey]
 
-      rsaKey.getModulus shouldBe new Base64URL("0vx7agoebGcQSuuPiLJXZptN9nndrQmbXEps2aiAFbWhM78LhWx4cbbfAAtVT86zwu1RK7aPFFxuhDR1L6tSoc_BJECPebWKRXjBZCiFV4n3oknjhMstn64tZ_2W-5JsGY4Hc5n9yBXArwl93lqt7_RN5w6Cf0h4QyQ5v-65YGjQR0_FDW2QvzqY368QQMicAtaSqzs8KJZgnYb9c7d0zgdAZHzu6qMQvRL5hajrn1n91CbOpbISD08qNLyrdkt-bFTWhAI4vMQFh6WeZu0fM4lFd2NcRwr3XPksINHaQ-G_xBniIqbw0Ls1jF44-csFCur-kEgU8awapJzKnqDKgw")
-      rsaKey.getPublicExponent shouldBe new Base64URL("AQAB")
-      rsaKey.getPrivateExponent shouldBe new Base64URL("X4cTteJY_gn4FYPsXB8rdXix5vwsg1FLN5E3EaG6RJoVH-HLLKD9M7dx5oo7GURknchnrRweUkC7hT5fJLM0WbFAKNLWY2vv7B6NqXSzUvxT0_YSfqijwp3RTzlBaCxWp4doFk5N2o8Gy_nHNKroADIkJ46pRUohsXywbReAdYaMwFs9tv8d_cPVY3i07a3t8MN6TNwm0dSawm9v47UiCl3Sk5ZiG7xojPLu4sbg1U2jx4IBTNBznbJSzFHK66jT8bgkuqsk0GjskDJk19Z4qwjwbsnn4j2WBii3RL-Us2lGVkY8fkFzme1z0HbIkfz0Y6mqnOYtqc0X4jfcKoAC8Q")
-      rsaKey.getFirstPrimeFactor shouldBe new Base64URL("83i-7IvMGXoMXCskv73TKr8637FiO7Z27zv8oj6pbWUQyLPQBQxtPVnwD20R-60eTDmD2ujnMt5PoqMrm8RfmNhVWDtjjMmCMjOpSXicFHj7XOuVIYQyqVWlWEh6dN36GVZYk93N8Bc9vY41xy8B9RzzOGVQzXvNEvn7O0nVbfs")
-      rsaKey.getSecondPrimeFactor shouldBe new Base64URL("3dfOR9cuYq-0S-mkFLzgItgMEfFzB2q3hWehMuG0oCuqnb3vobLyumqjVZQO1dIrdwgTnCdpYzBcOfW5r370AFXjiWft_NGEiovonizhKpo9VVS78TzFgxkIdrecRezsZ-1kYd_s1qDbxtkDEgfAITAG9LUnADun4vIcb6yelxk")
-      rsaKey.getFirstFactorCRTExponent shouldBe new Base64URL("G4sPXkc6Ya9y8oJW9_ILj4xuppu0lzi_H7VTkS8xj5SdX3coE0oimYwxIi2emTAue0UOa5dpgFGyBJ4c8tQ2VF402XRugKDTP8akYhFo5tAA77Qe_NmtuYZc3C3m3I24G2GvR5sSDxUyAN2zq8Lfn9EUms6rY3Ob8YeiKkTiBj0")
-      rsaKey.getSecondFactorCRTExponent shouldBe new Base64URL("s9lAH9fggBsoFR8Oac2R_E2gw282rT2kGOAhvIllETE1efrA6huUUvMfBcMpn8lqeW6vzznYY5SSQF7pMdC_agI3nG8Ibp1BUb0JUiraRNqUfLhcQb_d9GF4Dh7e74WbRsobRonujTYN1xCaP6TO61jvWrX-L18txXw494Q_cgk")
-      rsaKey.getFirstCRTCoefficient shouldBe new Base64URL("GyM_p6JrXySiz1toFgKbWV-JdI3jQ4ypu9rbMWx3rQJBfmt0FoYzgUIZEVFEcOqwemRN81zoDAaa-Bk0KWNGDjJHZDdDmFhW3AN7lI-puxk_mHZGJ11rxyR8O55XLSe3SPmRfKwZI6yU24ZxvQKFYItdldUKGzO6Ia6zTKhAVRU")
+      rsaKey.getModulus shouldBe new Base64URL("n")
+      rsaKey.getPublicExponent shouldBe new Base64URL("e")
+      rsaKey.getPrivateExponent shouldBe new Base64URL("d")
+      rsaKey.getFirstPrimeFactor shouldBe new Base64URL("p")
+      rsaKey.getSecondPrimeFactor shouldBe new Base64URL("q")
+      rsaKey.getFirstFactorCRTExponent shouldBe new Base64URL("dp")
+      rsaKey.getSecondFactorCRTExponent shouldBe new Base64URL("dq")
+      rsaKey.getFirstCRTCoefficient shouldBe new Base64URL("qi")
       rsaKey.getOtherPrimes should have size 1
 
       val otherPrime = rsaKey.getOtherPrimes.get(0)
 
-      otherPrime.getPrimeFactor shouldBe new Base64URL("abc")
-      otherPrime.getFactorCRTExponent shouldBe new Base64URL("def")
-      otherPrime.getFactorCRTCoefficient shouldBe new Base64URL("ghi")
+      otherPrime.getPrimeFactor shouldBe new Base64URL("r")
+      otherPrime.getFactorCRTExponent shouldBe new Base64URL("d")
+      otherPrime.getFactorCRTCoefficient shouldBe new Base64URL("t")
+    }
+
+    "write a private first and second representation RSAKey" in {
+      val otherPrimes = new OtherPrimesInfo(new Base64URL("r"),
+                                            new Base64URL("d"),
+                                            new Base64URL("t"))
+
+      val jwk = new RSAKey.Builder(new Base64URL("n"),
+                                   new Base64URL("e")
+                                  )
+                                  .privateExponent(new Base64URL("d"))
+                                  .firstPrimeFactor(new Base64URL("p"))
+                                  .secondPrimeFactor(new Base64URL("q"))
+                                  .firstFactorCRTExponent(new Base64URL("dp"))
+                                  .secondFactorCRTExponent(new Base64URL("dq"))
+                                  .firstCRTCoefficient(new Base64URL("qi"))
+                                  .otherPrimes(List(otherPrimes))
+                                  .build
+
+      val json = jwk.toJson.asJsObject
+
+      val n = json.getFields("n")
+      n should have length 1
+      n should contain theSameElementsAs Seq(JsString("n"))
+
+      val e = json.getFields("e")
+      e should have length 1
+      e should contain theSameElementsAs Seq(JsString("e"))
+
+      val d = json.getFields("d")
+      d should have length 1
+      d should contain theSameElementsAs Seq(JsString("d"))
+
+      val p = json.getFields("p")
+      p should have length 1
+      p should contain theSameElementsAs Seq(JsString("p"))
+
+      val q = json.getFields("q")
+      q should have length 1
+      q should contain theSameElementsAs Seq(JsString("q"))
+
+      val dp = json.getFields("dp")
+      dp should have length 1
+      dp should contain theSameElementsAs Seq(JsString("dp"))
+
+      val dq = json.getFields("dq")
+      dq should have length 1
+      dq should contain theSameElementsAs Seq(JsString("dq"))
+
+      val qi = json.getFields("qi")
+      qi should have length 1
+      qi should contain theSameElementsAs Seq(JsString("qi"))
+
+      val oth = json.getFields("oth")
+      oth should have length 1
+      oth should contain theSameElementsAs Seq(JsArray(JsObject("r" -> JsString("r"),
+                                                                "d" -> JsString("d"),
+                                                                "t" -> JsString("t"))))
     }
 
     "parse a public ECKey" in {
@@ -218,16 +360,16 @@ class JwkJsonProtocolTest extends WordSpec with Matchers with JwkJsonProtocol {
         {
           "kty" : "EC",
           "crv" : "P-256",
-          "x"   : "MKBCTNIcKUSDii11ySs3526iDZ8AiTo7Tu6KPAqv7D4",
-          "y"   : "4Etl6SRW2YiLUrN5vfvVHuhp7x8PxltmWWlbbM4IFyM"
+          "x"   : "x",
+          "y"   : "y"
         }
         """.parseJson
 
       val ecKey = json.convertTo[ECKey]
 
       ecKey.getCurve shouldBe ECKey.Curve.P_256
-      ecKey.getX shouldBe new Base64URL("MKBCTNIcKUSDii11ySs3526iDZ8AiTo7Tu6KPAqv7D4")
-      ecKey.getY shouldBe new Base64URL("4Etl6SRW2YiLUrN5vfvVHuhp7x8PxltmWWlbbM4IFyM")
+      ecKey.getX shouldBe new Base64URL("x")
+      ecKey.getY shouldBe new Base64URL("y")
     }
 
     "parse a private ECKey" in {
@@ -236,18 +378,45 @@ class JwkJsonProtocolTest extends WordSpec with Matchers with JwkJsonProtocol {
         {
           "kty" : "EC",
           "crv" : "P-256",
-          "x"   : "MKBCTNIcKUSDii11ySs3526iDZ8AiTo7Tu6KPAqv7D4",
-          "y"   : "4Etl6SRW2YiLUrN5vfvVHuhp7x8PxltmWWlbbM4IFyM",
-          "d"   : "870MB6gfuTJ4HtUnUvYMyJpr5eUZNP4Bk43bVdj3eAE"
+          "x"   : "x",
+          "y"   : "y",
+          "d"   : "d"
         }
         """.parseJson
 
       val ecKey = json.convertTo[ECKey]
 
       ecKey.getCurve shouldBe ECKey.Curve.P_256
-      ecKey.getX shouldBe new Base64URL("MKBCTNIcKUSDii11ySs3526iDZ8AiTo7Tu6KPAqv7D4")
-      ecKey.getY shouldBe new Base64URL("4Etl6SRW2YiLUrN5vfvVHuhp7x8PxltmWWlbbM4IFyM")
-      ecKey.getD shouldBe new Base64URL("870MB6gfuTJ4HtUnUvYMyJpr5eUZNP4Bk43bVdj3eAE")
+      ecKey.getX shouldBe new Base64URL("x")
+      ecKey.getY shouldBe new Base64URL("y")
+      ecKey.getD shouldBe new Base64URL("d")
+    }
+
+    "write a private ECKey" in {
+      val ecKey = new ECKey.Builder(ECKey.Curve.P_256,
+                                    new Base64URL("x"),
+                                    new Base64URL("y")
+                                   )
+                                   .d(new Base64URL("d"))
+                                   .build
+
+      val json = ecKey.toJson.asJsObject
+
+      val crv = json.getFields("crv")
+      crv should have length 1
+      crv should contain theSameElementsAs Seq(JsString("P-256"))
+
+      val x = json.getFields("x")
+      x should have length 1
+      x should contain theSameElementsAs Seq(JsString("x"))
+
+      val y = json.getFields("y")
+      y should have length 1
+      y should contain theSameElementsAs Seq(JsString("y"))
+
+      val d = json.getFields("d")
+      d should have length 1
+      d should contain theSameElementsAs Seq(JsString("d"))
     }
 
     "parse a JWKSet" in {
@@ -259,14 +428,14 @@ class JwkJsonProtocolTest extends WordSpec with Matchers with JwkJsonProtocol {
               "kty" : "EC",
               "kid" : "key1",
               "crv" : "P-256",
-              "x"   : "MKBCTNIcKUSDii11ySs3526iDZ8AiTo7Tu6KPAqv7D4",
-              "y"   : "4Etl6SRW2YiLUrN5vfvVHuhp7x8PxltmWWlbbM4IFyM"
+              "x"   : "x",
+              "y"   : "y"
             },
             {
               "kty" : "RSA",
               "kid" : "key2",
-              "n"   : "0vx7agoebGcQSuuPiLJXZptN9nndrQmbXEps2aiAFbWhM78LhWx4cbbfAAtVT86zwu1RK7aPFFxuhDR1L6tSoc_BJECPebWKRXjBZCiFV4n3oknjhMstn64tZ_2W-5JsGY4Hc5n9yBXArwl93lqt7_RN5w6Cf0h4QyQ5v-65YGjQR0_FDW2QvzqY368QQMicAtaSqzs8KJZgnYb9c7d0zgdAZHzu6qMQvRL5hajrn1n91CbOpbISD08qNLyrdkt-bFTWhAI4vMQFh6WeZu0fM4lFd2NcRwr3XPksINHaQ-G_xBniIqbw0Ls1jF44-csFCur-kEgU8awapJzKnqDKgw",
-              "e"   : "AQAB"
+              "n"   : "n",
+              "e"   : "e"
             }
           ]
         }
@@ -283,6 +452,28 @@ class JwkJsonProtocolTest extends WordSpec with Matchers with JwkJsonProtocol {
       ecKey shouldBe an[ECKey]
       rsaKey.getKeyType shouldBe KeyType.RSA
       rsaKey shouldBe a[RSAKey]
+    }
+
+    "write a JWKSet" in {
+      val rsaKey = new RSAKey.Builder(new Base64URL("n"),
+                                      new Base64URL("e")
+                                     )
+                                     .build
+
+      val ecKey = new ECKey.Builder(ECKey.Curve.P_256,
+                                    new Base64URL("x"),
+                                    new Base64URL("y")
+                                   )
+                                   .build
+
+      val jwkSet = new JWKSet(List(rsaKey, ecKey))
+
+      val json = jwkSet.toJson.asJsObject
+
+      json.getFields("keys") match {
+        case Seq(JsArray(jwks)) => jwks should have length 2
+        case _ => fail("keys field was not a JsArray")
+      }
     }
   }
 
