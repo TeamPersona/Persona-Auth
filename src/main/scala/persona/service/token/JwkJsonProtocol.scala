@@ -192,7 +192,7 @@ sealed trait JWKJsonUtils extends DefaultJsonProtocol {
 
 }
 
-trait JwkJsonProtocol {
+trait JwkJsonProtocol extends DefaultJsonProtocol {
 
   implicit object ECKeyJsonFormat extends RootJsonFormat[ECKey] with JWKJsonUtils {
 

@@ -3,16 +3,14 @@ package persona.service.token
 import akka.actor._
 import akka.http.scaladsl.HttpExt
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
-import akka.http.scaladsl.model._
+import akka.http.scaladsl.model.{HttpResponse, StatusCodes}
 import akka.http.scaladsl.unmarshalling.Unmarshal
 import akka.pattern.ask
 import akka.stream.scaladsl.ImplicitMaterializer
-import com.nimbusds.jose.jwk.{JWK, JWKSet}
 
-import scala.collection.JavaConversions._
 import scala.concurrent.{ExecutionContext, Future}
 
-object HttpJwkCache {
+object OpenIdDiscoveryDocumentCache {
 
   private object Retrieve
 
@@ -22,24 +20,24 @@ object HttpJwkCache {
     extends Actor
     with ImplicitMaterializer
     with SprayJsonSupport
-    with JwkJsonProtocol {
+    with OpenIdDiscoveryDocumentJsonProtocol {
 
     private[this] implicit val executionContext = context.dispatcher
-    private[this] var cache = Set[JWK]()
+    private[this] var document: OpenIdDiscoveryDocument = _
     private[this] var pendingRetrieves = List[ActorRef]()
 
     // This will be called before the first http response has been received.
     // We will queue up callers so that we can send them an answer once
     // we have received the first http response
     def receive: Receive = {
-      case HttpJwkCache.Retrieve =>
+      case OpenIdDiscoveryDocumentCache.Retrieve =>
         pendingRetrieves +:= sender
 
       case response: HttpResponse if StatusCodes.OK == response.status =>
         handleResponse(response)
 
-      case jwkSet: JWKSet =>
-        update(jwkSet)
+      case openIdDiscoverDocument: OpenIdDiscoveryDocument =>
+        update(openIdDiscoverDocument)
 
         pendingRetrieves.foreach { actor =>
           retrieve(actor)
@@ -53,28 +51,28 @@ object HttpJwkCache {
     // This will be called after the first http response has been received.
     // We will respond to callers immediately
     def initializedReceive: Receive = {
-      case HttpJwkCache.Retrieve =>
+      case OpenIdDiscoveryDocumentCache.Retrieve =>
         retrieve(sender)
 
       case response: HttpResponse if StatusCodes.OK == response.status =>
         handleResponse(response)
 
-      case jwkSet: JWKSet =>
-        update(jwkSet)
+      case openIdDiscoverDocument: OpenIdDiscoveryDocument =>
+        update(openIdDiscoverDocument)
     }
 
     private[this] def retrieve(actor: ActorRef) = {
-      actor ! cache
+      actor ! document
     }
 
     private[this] def handleResponse(response: HttpResponse) = {
-      Unmarshal(response.entity).to[JWKSet].map { jwkSet =>
-        self ! jwkSet
+      Unmarshal(response.entity).to[OpenIdDiscoveryDocument].map { openIdDiscoveryDocument =>
+        self ! openIdDiscoveryDocument
       }
     }
 
-    private[this] def update(jwkSet: JWKSet) = {
-      cache = jwkSet.getKeys.toSet
+    private[this] def update(openIdDiscoveryDocument: OpenIdDiscoveryDocument) = {
+      document = openIdDiscoveryDocument
     }
 
   }
@@ -83,25 +81,25 @@ object HttpJwkCache {
     actorSystem: ActorSystem,
     scheduler: Scheduler,
     http: HttpExt,
-    targetUri: String): HttpJwkCache = {
+    targetUri: String): OpenIdDiscoveryDocumentCache = {
 
-    val internalActor = actorSystem.actorOf(Props(new HttpJwkCache.InternalActor))
+    val internalActor = actorSystem.actorOf(Props(new OpenIdDiscoveryDocumentCache.InternalActor))
     val requestCache = actorSystem.actorOf(Props(new HttpRequestCache(internalActor, scheduler, http, targetUri)))
 
-    new HttpJwkCache(internalActor, requestCache)
+    new OpenIdDiscoveryDocumentCache(internalActor, requestCache)
   }
 
 }
 
 // The requestCache is passed in so that it doesn't get garbage collected
-class HttpJwkCache private(internalActor: ActorRef, requestCache: ActorRef) extends JwkCache {
+class OpenIdDiscoveryDocumentCache private(internalActor: ActorRef, requestCache: ActorRef) {
 
-  def get(implicit executionContext: ExecutionContext): Future[Set[JWK]] = {
-    implicit val timeout = HttpJwkCache.RetrieveTimeout
-    val futureResult = internalActor ? HttpJwkCache.Retrieve
+  def get(implicit executionContext: ExecutionContext): Future[OpenIdDiscoveryDocument] = {
+    implicit val timeout = OpenIdDiscoveryDocumentCache.RetrieveTimeout
+    val futureResult = internalActor ? OpenIdDiscoveryDocumentCache.Retrieve
 
     futureResult map { result =>
-      result.asInstanceOf[Set[JWK]]
+      result.asInstanceOf[OpenIdDiscoveryDocument]
     }
   }
 

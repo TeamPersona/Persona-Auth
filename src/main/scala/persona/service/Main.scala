@@ -4,6 +4,7 @@ import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.stream.ActorMaterializer
 import com.typesafe.config.ConfigFactory
+
 import scala.io.StdIn
 
 object Main extends App with RestApi {
@@ -16,8 +17,10 @@ object Main extends App with RestApi {
   private[this] val interface = httpConfig.getString("interface")
   private[this] val port = httpConfig.getInt("port")
 
+  private[this] val http = Http()
+
   // Start the server
-  val binding = Http().bindAndHandle(routes, interface, port)
+  val binding = http.bindAndHandle(routes, interface, port)
 
   // Wait for someone to stop the server
   StdIn.readLine()
