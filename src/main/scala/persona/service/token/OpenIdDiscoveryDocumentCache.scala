@@ -10,66 +10,70 @@ import akka.stream.scaladsl.ImplicitMaterializer
 
 import scala.concurrent.{ExecutionContext, Future}
 
-object OpenIdDiscoveryDocumentCache {
+private object OpenIdDiscoveryDocumentCacheActor {
 
-  private object Retrieve
+  object Retrieve
 
-  val RetrieveTimeout = HttpRequestCache.RetrieveTimeout
+}
 
-  private class InternalActor
-    extends Actor
+private class OpenIdDiscoveryDocumentCacheActor
+  extends Actor
     with Stash
     with ImplicitMaterializer
     with SprayJsonSupport
     with OpenIdDiscoveryDocumentJsonProtocol {
 
-    private[this] implicit val executionContext = context.dispatcher
-    private[this] var document: OpenIdDiscoveryDocument = _
+  private[this] implicit val executionContext = context.dispatcher
+  private[this] var document: OpenIdDiscoveryDocument = _
 
-    // This will be called before the first http response has been received.
-    // We will queue up callers so that we can send them an answer once
-    // we have received the first http response
-    def receive: Receive = {
-      case OpenIdDiscoveryDocumentCache.Retrieve =>
-        stash()
+  // This will be called before the first http response has been received.
+  // We will queue up callers so that we can send them an answer once
+  // we have received the first http response
+  def receive: Receive = {
+    case OpenIdDiscoveryDocumentCacheActor.Retrieve =>
+      stash()
 
-      case response: HttpResponse if StatusCodes.OK == response.status =>
-        handleResponse(response)
+    case response: HttpResponse if StatusCodes.OK == response.status =>
+      handleResponse(response)
 
-      case openIdDiscoverDocument: OpenIdDiscoveryDocument =>
-        update(openIdDiscoverDocument)
-        unstashAll()
-        context.become(initializedReceive)
-    }
-
-    // This will be called after the first http response has been received.
-    // We will respond to callers immediately
-    def initializedReceive: Receive = {
-      case OpenIdDiscoveryDocumentCache.Retrieve =>
-        retrieve(sender)
-
-      case response: HttpResponse if StatusCodes.OK == response.status =>
-        handleResponse(response)
-
-      case openIdDiscoverDocument: OpenIdDiscoveryDocument =>
-        update(openIdDiscoverDocument)
-    }
-
-    private[this] def retrieve(actor: ActorRef) = {
-      actor ! document
-    }
-
-    private[this] def handleResponse(response: HttpResponse) = {
-      Unmarshal(response.entity).to[OpenIdDiscoveryDocument].map { openIdDiscoveryDocument =>
-        self ! openIdDiscoveryDocument
-      }
-    }
-
-    private[this] def update(openIdDiscoveryDocument: OpenIdDiscoveryDocument) = {
-      document = openIdDiscoveryDocument
-    }
-
+    case openIdDiscoverDocument: OpenIdDiscoveryDocument =>
+      update(openIdDiscoverDocument)
+      unstashAll()
+      context.become(initializedReceive)
   }
+
+  // This will be called after the first http response has been received.
+  // We will respond to callers immediately
+  def initializedReceive: Receive = {
+    case OpenIdDiscoveryDocumentCacheActor.Retrieve =>
+      retrieve(sender)
+
+    case response: HttpResponse if StatusCodes.OK == response.status =>
+      handleResponse(response)
+
+    case openIdDiscoverDocument: OpenIdDiscoveryDocument =>
+      update(openIdDiscoverDocument)
+  }
+
+  private[this] def retrieve(actor: ActorRef) = {
+    actor ! document
+  }
+
+  private[this] def handleResponse(response: HttpResponse) = {
+    Unmarshal(response.entity).to[OpenIdDiscoveryDocument].map { openIdDiscoveryDocument =>
+      self ! openIdDiscoveryDocument
+    }
+  }
+
+  private[this] def update(openIdDiscoveryDocument: OpenIdDiscoveryDocument) = {
+    document = openIdDiscoveryDocument
+  }
+
+}
+
+object OpenIdDiscoveryDocumentCache {
+
+  val RetrieveTimeout = HttpRequestCache.RetrieveTimeout
 
   def apply(
     actorSystem: ActorSystem,
@@ -77,7 +81,7 @@ object OpenIdDiscoveryDocumentCache {
     http: HttpExt,
     targetUri: String): OpenIdDiscoveryDocumentCache = {
 
-    val internalActor = actorSystem.actorOf(Props(new OpenIdDiscoveryDocumentCache.InternalActor))
+    val internalActor = actorSystem.actorOf(Props(new OpenIdDiscoveryDocumentCacheActor))
     val requestCache = actorSystem.actorOf(Props(new HttpRequestCache(internalActor, scheduler, http, targetUri)))
 
     new OpenIdDiscoveryDocumentCache(internalActor, requestCache)
@@ -90,7 +94,7 @@ class OpenIdDiscoveryDocumentCache private(internalActor: ActorRef, requestCache
 
   def get(implicit executionContext: ExecutionContext): Future[OpenIdDiscoveryDocument] = {
     implicit val timeout = OpenIdDiscoveryDocumentCache.RetrieveTimeout
-    val futureResult = internalActor ? OpenIdDiscoveryDocumentCache.Retrieve
+    val futureResult = internalActor ? OpenIdDiscoveryDocumentCacheActor.Retrieve
 
     futureResult map { result =>
       result.asInstanceOf[OpenIdDiscoveryDocument]
