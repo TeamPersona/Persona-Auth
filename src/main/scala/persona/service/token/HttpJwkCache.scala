@@ -20,33 +20,27 @@ object HttpJwkCache {
 
   private class InternalActor
     extends Actor
+    with Stash
     with ImplicitMaterializer
     with SprayJsonSupport
     with JwkJsonProtocol {
 
     private[this] implicit val executionContext = context.dispatcher
     private[this] var cache = Set[JWK]()
-    private[this] var pendingRetrieves = List[ActorRef]()
 
     // This will be called before the first http response has been received.
     // We will queue up callers so that we can send them an answer once
     // we have received the first http response
     def receive: Receive = {
       case HttpJwkCache.Retrieve =>
-        pendingRetrieves +:= sender
+        stash()
 
       case response: HttpResponse if StatusCodes.OK == response.status =>
         handleResponse(response)
 
       case jwkSet: JWKSet =>
         update(jwkSet)
-
-        pendingRetrieves.foreach { actor =>
-          retrieve(actor)
-        }
-
-        pendingRetrieves = List[ActorRef]()
-
+        unstashAll()
         context.become(initializedReceive)
     }
 

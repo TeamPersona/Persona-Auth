@@ -4,6 +4,7 @@ import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.stream.ActorMaterializer
 import com.typesafe.config.ConfigFactory
+import persona.service.token.OpenIdDiscoveryDocumentJwkCache
 
 import scala.io.StdIn
 
@@ -18,6 +19,16 @@ object Main extends App with RestApi {
   private[this] val port = httpConfig.getInt("port")
 
   private[this] val http = Http()
+
+  val test = OpenIdDiscoveryDocumentJwkCache(system, system.scheduler, http, "https://accounts.google.com/.well-known/openid-configuration")
+
+  test.get.map { jwks =>
+    Console.println("Got " + jwks.size + " jwks")
+  }
+
+  test.get.map { jwks =>
+    Console.println("Got " + jwks.size + " jwks")
+  }
 
   // Start the server
   val binding = http.bindAndHandle(routes, interface, port)

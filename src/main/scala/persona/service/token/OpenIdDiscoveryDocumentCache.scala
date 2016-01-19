@@ -18,33 +18,27 @@ object OpenIdDiscoveryDocumentCache {
 
   private class InternalActor
     extends Actor
+    with Stash
     with ImplicitMaterializer
     with SprayJsonSupport
     with OpenIdDiscoveryDocumentJsonProtocol {
 
     private[this] implicit val executionContext = context.dispatcher
     private[this] var document: OpenIdDiscoveryDocument = _
-    private[this] var pendingRetrieves = List[ActorRef]()
 
     // This will be called before the first http response has been received.
     // We will queue up callers so that we can send them an answer once
     // we have received the first http response
     def receive: Receive = {
       case OpenIdDiscoveryDocumentCache.Retrieve =>
-        pendingRetrieves +:= sender
+        stash()
 
       case response: HttpResponse if StatusCodes.OK == response.status =>
         handleResponse(response)
 
       case openIdDiscoverDocument: OpenIdDiscoveryDocument =>
         update(openIdDiscoverDocument)
-
-        pendingRetrieves.foreach { actor =>
-          retrieve(actor)
-        }
-
-        pendingRetrieves = List[ActorRef]()
-
+        unstashAll()
         context.become(initializedReceive)
     }
 
