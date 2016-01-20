@@ -91,11 +91,11 @@ object HttpJwkCache {
 }
 
 // The requestCache is passed in so that it doesn't get garbage collected
-class HttpJwkCache private(internalActor: ActorRef, requestCache: ActorRef) extends JwkCache {
+class HttpJwkCache private(actor: ActorRef, requestCache: ActorRef) extends ActorWrapper(actor) with JwkCache {
 
   def get(implicit executionContext: ExecutionContext): Future[Set[JWK]] = {
     implicit val timeout = HttpJwkCache.RetrieveTimeout
-    val futureResult = internalActor ? HttpJwkCacheActor.Retrieve
+    val futureResult = actor ? HttpJwkCacheActor.Retrieve
 
     futureResult map { result =>
       result.asInstanceOf[Set[JWK]]

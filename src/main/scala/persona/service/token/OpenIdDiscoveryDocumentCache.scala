@@ -90,11 +90,11 @@ object OpenIdDiscoveryDocumentCache {
 }
 
 // The requestCache is passed in so that it doesn't get garbage collected
-class OpenIdDiscoveryDocumentCache private(internalActor: ActorRef, requestCache: ActorRef) {
+class OpenIdDiscoveryDocumentCache private(actor: ActorRef, requestCache: ActorRef) extends ActorWrapper(actor) {
 
   def get(implicit executionContext: ExecutionContext): Future[OpenIdDiscoveryDocument] = {
     implicit val timeout = OpenIdDiscoveryDocumentCache.RetrieveTimeout
-    val futureResult = internalActor ? OpenIdDiscoveryDocumentCacheActor.Retrieve
+    val futureResult = actor ? OpenIdDiscoveryDocumentCacheActor.Retrieve
 
     futureResult map { result =>
       result.asInstanceOf[OpenIdDiscoveryDocument]

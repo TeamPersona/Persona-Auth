@@ -25,7 +25,7 @@ private class OpenIdDiscoveryDocumentJwkCacheActor(
   private[this] implicit val executionContext = context.dispatcher
   private[this] val documentCache = OpenIdDiscoveryDocumentCache(actorSystem, scheduler, http, targetUri)
   private[this] var documentOption: Option[OpenIdDiscoveryDocument] = None
-  private[this] var jwkCache: JwkCache = _
+  private[this] var jwkCache: HttpJwkCache = _
 
   def receive: Receive = {
     case OpenIdDiscoveryDocumentJwkCacheActor.Retrieve =>
@@ -50,6 +50,7 @@ private class OpenIdDiscoveryDocumentJwkCacheActor(
       // Check and see if the document has changed
       documentOption.foreach { existingDocument =>
         if(existingDocument != openIdDiscoveryDocument) {
+          jwkCache.stop()
           update(openIdDiscoveryDocument)
         }
       }
@@ -85,13 +86,13 @@ object OpenIdDiscoveryDocumentJwkCache {
 
 }
 
-class OpenIdDiscoveryDocumentJwkCache private(internalActor: ActorRef) extends JwkCache {
+class OpenIdDiscoveryDocumentJwkCache private(actor: ActorRef) extends ActorWrapper(actor) with JwkCache {
 
   def get(implicit executionContext: ExecutionContext): Future[Set[JWK]] = {
     implicit val timeout = OpenIdDiscoveryDocumentJwkCache.RetrieveTimeout
-    val futureResult = internalActor ? OpenIdDiscoveryDocumentJwkCacheActor.Retrieve
+    val futureResult = actor ? OpenIdDiscoveryDocumentJwkCacheActor.Retrieve
 
-    futureResult map { result =>
+    futureResult.map { result =>
       result.asInstanceOf[Set[JWK]]
     }
   }
