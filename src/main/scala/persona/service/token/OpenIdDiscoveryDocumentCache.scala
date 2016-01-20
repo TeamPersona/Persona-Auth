@@ -48,17 +48,13 @@ private class OpenIdDiscoveryDocumentCacheActor(http: HttpExt, targetUri: String
   // We will respond to callers immediately
   def initializedReceive: Receive = {
     case OpenIdDiscoveryDocumentCacheActor.Retrieve =>
-      retrieve(sender)
+      sender ! document
 
     case response: HttpResponse if StatusCodes.OK == response.status =>
       handleResponse(response)
 
     case openIdDiscoverDocument: OpenIdDiscoveryDocument =>
       update(openIdDiscoverDocument)
-  }
-
-  private[this] def retrieve(actor: ActorRef) = {
-    actor ! document
   }
 
   private[this] def handleResponse(response: HttpResponse) = {

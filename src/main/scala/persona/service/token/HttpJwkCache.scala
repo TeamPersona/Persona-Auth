@@ -50,17 +50,13 @@ private class HttpJwkCacheActor(http: HttpExt, targetUri: String) extends Actor
   // We will respond to callers immediately
   def initializedReceive: Receive = {
     case HttpJwkCacheActor.Retrieve =>
-      retrieve(sender)
+      sender ! cache
 
     case response: HttpResponse if StatusCodes.OK == response.status =>
       handleResponse(response)
 
     case jwkSet: JWKSet =>
       update(jwkSet)
-  }
-
-  private[this] def retrieve(actor: ActorRef) = {
-    actor ! cache
   }
 
   private[this] def handleResponse(response: HttpResponse) = {

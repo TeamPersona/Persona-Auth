@@ -41,23 +41,32 @@ private class OpenIdDiscoveryDocumentJwkCacheActor(http: HttpExt, targetUri: Str
   }
 
   private[this] def tryUpdate(openIdDiscoveryDocument: OpenIdDiscoveryDocument) = {
-    if(documentOption.isDefined) {
+    val (updatedDocumentOption, updatedJwkCache) = documentOption.map { existingDocument =>
       // Check and see if the document has changed
-      documentOption.foreach { existingDocument =>
-        if(existingDocument != openIdDiscoveryDocument) {
-          jwkCache.stop()
-          update(openIdDiscoveryDocument)
-        }
+      if(existingDocument != openIdDiscoveryDocument) {
+        // Document has changed - kill the old cache
+        jwkCache.stop()
+
+        // Now create the new cache
+        update(openIdDiscoveryDocument)
+      } else {
+        // Document hasn't changed
+        (documentOption, jwkCache)
       }
-    } else {
+    } getOrElse {
       // First document we've gotten
       update(openIdDiscoveryDocument)
     }
+
+    documentOption = updatedDocumentOption
+    jwkCache = updatedJwkCache
   }
 
   private[this] def update(openIdDiscoveryDocument: OpenIdDiscoveryDocument) = {
-    documentOption = Some(openIdDiscoveryDocument)
-    jwkCache = HttpJwkCache(context.system, http, openIdDiscoveryDocument.jwksUri)
+    val updatedDocumentOption = Some(openIdDiscoveryDocument)
+    val updatedJwkCache = HttpJwkCache(context.system, http, openIdDiscoveryDocument.jwksUri)
+
+    (updatedDocumentOption, updatedJwkCache)
   }
 
 }
