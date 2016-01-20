@@ -20,7 +20,7 @@ object Main extends App with RestApi {
 
   private[this] val http = Http()
 
-  val test = OpenIdDiscoveryDocumentJwkCache(system, system.scheduler, http, "https://accounts.google.com/.well-known/openid-configuration")
+  val test = OpenIdDiscoveryDocumentJwkCache(system, http, "https://accounts.google.com/.well-known/openid-configuration")
 
   test.get.map { jwks =>
     Console.println("Got " + jwks.size + " jwks")

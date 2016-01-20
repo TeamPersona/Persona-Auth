@@ -18,12 +18,14 @@ private object HttpJwkCacheActor {
 
 }
 
-private class HttpJwkCacheActor
-  extends Actor
-    with Stash
-    with ImplicitMaterializer
-    with SprayJsonSupport
-    with JwkJsonProtocol {
+private class HttpJwkCacheActor(http: HttpExt, targetUri: String) extends Actor
+  with Stash
+  with ImplicitMaterializer
+  with SprayJsonSupport
+  with JwkJsonProtocol {
+
+  // Make a child actor that will send us the http response for targetUri
+  context.actorOf(Props(new HttpRequestCache(self, http, targetUri)))
 
   private[this] implicit val executionContext = context.dispatcher
   private[this] var cache = Set[JWK]()
@@ -72,26 +74,20 @@ private class HttpJwkCacheActor
   }
 
 }
+
 object HttpJwkCache {
 
   val RetrieveTimeout = HttpRequestCache.RetrieveTimeout
 
-  def apply(
-    actorSystem: ActorSystem,
-    scheduler: Scheduler,
-    http: HttpExt,
-    targetUri: String): HttpJwkCache = {
+  def apply(actorSystem: ActorSystem, http: HttpExt, targetUri: String): HttpJwkCache = {
+    val actor = actorSystem.actorOf(Props(new HttpJwkCacheActor(http, targetUri)))
 
-    val internalActor = actorSystem.actorOf(Props(new HttpJwkCacheActor))
-    val requestCache = actorSystem.actorOf(Props(new HttpRequestCache(internalActor, scheduler, http, targetUri)))
-
-    new HttpJwkCache(internalActor, requestCache)
+    new HttpJwkCache(actor)
   }
 
 }
 
-// The requestCache is passed in so that it doesn't get garbage collected
-class HttpJwkCache private(actor: ActorRef, requestCache: ActorRef) extends ActorWrapper(actor) with JwkCache {
+class HttpJwkCache private(actor: ActorRef) extends ActorWrapper(actor) with JwkCache {
 
   def get(implicit executionContext: ExecutionContext): Future[Set[JWK]] = {
     implicit val timeout = HttpJwkCache.RetrieveTimeout

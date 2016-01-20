@@ -2,15 +2,15 @@ package persona.service.token
 
 import java.util.Locale
 
-import akka.actor.{Actor, ActorRef, Scheduler}
+import akka.actor.{Actor, ActorRef}
 import akka.http.scaladsl.HttpExt
 import akka.http.scaladsl.model.headers.{Expires, `Cache-Control`}
 import akka.http.scaladsl.model.{HttpHeader, HttpRequest, HttpResponse}
 import akka.pattern.pipe
 import akka.stream.scaladsl.ImplicitMaterializer
 import akka.util.Timeout
-import org.joda.time.{DateTime, Seconds}
 import org.joda.time.format.DateTimeFormat
+import org.joda.time.{DateTime, Seconds}
 
 import scala.concurrent.duration._
 
@@ -30,13 +30,7 @@ object HttpRequestCache {
 
 }
 
-class HttpRequestCache(
-  recipient: ActorRef,
-  scheduler: Scheduler,
-  http: HttpExt,
-  targetUri: String)
-  extends Actor
-  with ImplicitMaterializer {
+class HttpRequestCache(recipient: ActorRef, http: HttpExt, targetUri: String) extends Actor with ImplicitMaterializer {
 
   private[this] implicit val executionContext = context.dispatcher
 
@@ -67,7 +61,7 @@ class HttpRequestCache(
       if(cacheTime > 0) math.max(HttpRequestCache.MinimumRefresh, skewedCacheTime)
       else HttpRequestCache.DefaultRefresh
 
-    scheduler.scheduleOnce(refreshTime.seconds, self, HttpRequestCache.Refresh)
+    context.system.scheduler.scheduleOnce(refreshTime.seconds, self, HttpRequestCache.Refresh)
   }
 
   private[this] def calculateCacheTime(httpHeaders: Seq[HttpHeader]) = {

@@ -16,12 +16,14 @@ private object OpenIdDiscoveryDocumentCacheActor {
 
 }
 
-private class OpenIdDiscoveryDocumentCacheActor
-  extends Actor
-    with Stash
-    with ImplicitMaterializer
-    with SprayJsonSupport
-    with OpenIdDiscoveryDocumentJsonProtocol {
+private class OpenIdDiscoveryDocumentCacheActor(http: HttpExt, targetUri: String) extends Actor
+  with Stash
+  with ImplicitMaterializer
+  with SprayJsonSupport
+  with OpenIdDiscoveryDocumentJsonProtocol {
+
+  // Make a child actor that will send us the http response for targetUri
+  context.actorOf(Props(new HttpRequestCache(self, http, targetUri)))
 
   private[this] implicit val executionContext = context.dispatcher
   private[this] var document: OpenIdDiscoveryDocument = _
@@ -75,22 +77,15 @@ object OpenIdDiscoveryDocumentCache {
 
   val RetrieveTimeout = HttpRequestCache.RetrieveTimeout
 
-  def apply(
-    actorSystem: ActorSystem,
-    scheduler: Scheduler,
-    http: HttpExt,
-    targetUri: String): OpenIdDiscoveryDocumentCache = {
+  def apply(actorSystem: ActorSystem, http: HttpExt, targetUri: String): OpenIdDiscoveryDocumentCache = {
+    val actor = actorSystem.actorOf(Props(new OpenIdDiscoveryDocumentCacheActor(http, targetUri)))
 
-    val internalActor = actorSystem.actorOf(Props(new OpenIdDiscoveryDocumentCacheActor))
-    val requestCache = actorSystem.actorOf(Props(new HttpRequestCache(internalActor, scheduler, http, targetUri)))
-
-    new OpenIdDiscoveryDocumentCache(internalActor, requestCache)
+    new OpenIdDiscoveryDocumentCache(actor)
   }
 
 }
 
-// The requestCache is passed in so that it doesn't get garbage collected
-class OpenIdDiscoveryDocumentCache private(actor: ActorRef, requestCache: ActorRef) extends ActorWrapper(actor) {
+class OpenIdDiscoveryDocumentCache private(actor: ActorRef) extends ActorWrapper(actor) {
 
   def get(implicit executionContext: ExecutionContext): Future[OpenIdDiscoveryDocument] = {
     implicit val timeout = OpenIdDiscoveryDocumentCache.RetrieveTimeout

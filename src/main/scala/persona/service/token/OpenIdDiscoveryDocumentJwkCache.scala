@@ -15,15 +15,10 @@ private object OpenIdDiscoveryDocumentJwkCacheActor {
 
 }
 
-private class OpenIdDiscoveryDocumentJwkCacheActor(
-  actorSystem: ActorSystem,
-  scheduler: Scheduler,
-  http: HttpExt,
-  targetUri: String)
-  extends Actor {
+private class OpenIdDiscoveryDocumentJwkCacheActor(http: HttpExt, targetUri: String) extends Actor {
 
   private[this] implicit val executionContext = context.dispatcher
-  private[this] val documentCache = OpenIdDiscoveryDocumentCache(actorSystem, scheduler, http, targetUri)
+  private[this] val documentCache = OpenIdDiscoveryDocumentCache(context.system, http, targetUri)
   private[this] var documentOption: Option[OpenIdDiscoveryDocument] = None
   private[this] var jwkCache: HttpJwkCache = _
 
@@ -62,7 +57,7 @@ private class OpenIdDiscoveryDocumentJwkCacheActor(
 
   private[this] def update(openIdDiscoveryDocument: OpenIdDiscoveryDocument) = {
     documentOption = Some(openIdDiscoveryDocument)
-    jwkCache = HttpJwkCache(actorSystem, scheduler, http, openIdDiscoveryDocument.jwksUri)
+    jwkCache = HttpJwkCache(context.system, http, openIdDiscoveryDocument.jwksUri)
   }
 
 }
@@ -70,16 +65,11 @@ private class OpenIdDiscoveryDocumentJwkCacheActor(
 object OpenIdDiscoveryDocumentJwkCache {
 
   val RetrieveTimeout = Timeout(
-    HttpJwkCache.RetrieveTimeout.duration + OpenIdDiscoveryDocumentCache.RetrieveTimeout.duration)
+    HttpJwkCache.RetrieveTimeout.duration + OpenIdDiscoveryDocumentCache.RetrieveTimeout.duration
+  )
 
-  def apply(
-    actorSystem: ActorSystem,
-    scheduler: Scheduler,
-    http: HttpExt,
-    targetUri: String): OpenIdDiscoveryDocumentJwkCache = {
-
-    val internalActor = actorSystem.actorOf(Props(
-      new OpenIdDiscoveryDocumentJwkCacheActor(actorSystem, scheduler, http, targetUri)))
+  def apply(actorSystem: ActorSystem, http: HttpExt, targetUri: String): OpenIdDiscoveryDocumentJwkCache = {
+    val internalActor = actorSystem.actorOf(Props(new OpenIdDiscoveryDocumentJwkCacheActor(http, targetUri)))
 
     new OpenIdDiscoveryDocumentJwkCache(internalActor)
   }
