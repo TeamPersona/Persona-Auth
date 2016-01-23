@@ -9,7 +9,7 @@ libraryDependencies ++= {
   val akkaHttpV = "2.0.1"
   val scalaTestV  = "3.0.0-M15"
   val scalaMockV = "3.2.2"
-  val nimbusJwtV = "4.9"
+  val nimbusOAuth = "5.1"
   val nscalaTimeV = "2.6.0"
 
   Seq(
@@ -20,7 +20,7 @@ libraryDependencies ++= {
     "com.typesafe.akka" %% "akka-http-testkit-experimental"    % akkaHttpV,
     "org.scalatest" %% "scalatest" % scalaTestV % "test",
     "org.scalamock" %% "scalamock-scalatest-support" % scalaMockV % "test",
-    "com.nimbusds" % "nimbus-jose-jwt" % nimbusJwtV,
+    "com.nimbusds" % "oauth2-oidc-sdk" % nimbusOAuth,
     "com.github.nscala-time" %% "nscala-time" % nscalaTimeV
   )
 }

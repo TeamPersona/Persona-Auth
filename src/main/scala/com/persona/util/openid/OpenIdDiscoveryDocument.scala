@@ -1,3 +1,6 @@
 package com.persona.util.openid
 
-case class OpenIdDiscoveryDocument(jwksUri: String)
+case class OpenIdDiscoveryDocument(
+  issuer: String,
+  jwksUri: String
+)

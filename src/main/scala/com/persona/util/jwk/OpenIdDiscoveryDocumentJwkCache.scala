@@ -17,10 +17,12 @@ private object OpenIdDiscoveryDocumentJwkCacheActor {
 
 }
 
-private class OpenIdDiscoveryDocumentJwkCacheActor(http: HttpExt, targetUri: String) extends Actor {
+private class OpenIdDiscoveryDocumentJwkCacheActor(
+  documentCache: OpenIdDiscoveryDocumentCache,
+  http: HttpExt)
+  extends Actor {
 
   private[this] implicit val executionContext = context.dispatcher
-  private[this] val documentCache = OpenIdDiscoveryDocumentCache(context.system, http, targetUri)
   private[this] var documentOption: Option[OpenIdDiscoveryDocument] = None
   private[this] var jwkCache: HttpJwkCache = _
 
@@ -79,8 +81,8 @@ object OpenIdDiscoveryDocumentJwkCache {
     HttpJwkCache.RetrieveTimeout.duration + OpenIdDiscoveryDocumentCache.RetrieveTimeout.duration
   )
 
-  def apply(actorSystem: ActorSystem, http: HttpExt, targetUri: String): OpenIdDiscoveryDocumentJwkCache = {
-    val internalActor = actorSystem.actorOf(Props(new OpenIdDiscoveryDocumentJwkCacheActor(http, targetUri)))
+  def apply(actorSystem: ActorSystem, documentCache: OpenIdDiscoveryDocumentCache, http: HttpExt): OpenIdDiscoveryDocumentJwkCache = {
+    val internalActor = actorSystem.actorOf(Props(new OpenIdDiscoveryDocumentJwkCacheActor(documentCache, http)))
 
     new OpenIdDiscoveryDocumentJwkCache(internalActor)
   }
