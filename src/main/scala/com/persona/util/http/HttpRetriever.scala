@@ -8,13 +8,12 @@ import akka.http.scaladsl.model.headers.{Expires, `Cache-Control`}
 import akka.http.scaladsl.model.{HttpHeader, HttpRequest, HttpResponse}
 import akka.pattern.pipe
 import akka.stream.scaladsl.ImplicitMaterializer
-import akka.util.Timeout
 import org.joda.time.format.DateTimeFormat
 import org.joda.time.{DateTime, Seconds}
 
 import scala.concurrent.duration._
 
-object HttpRequestCache {
+object HttpRetriever {
 
   private object Refresh
 
@@ -26,16 +25,16 @@ object HttpRequestCache {
                                              .withZoneUTC()
                                              .withLocale(Locale.US)
 
-  val RetrieveTimeout = Timeout(60.seconds)
-
 }
 
-class HttpRequestCache(recipient: ActorRef, http: HttpExt, targetUri: String) extends Actor with ImplicitMaterializer {
+class HttpRetriever(recipient: ActorRef, http: HttpExt, targetUri: String)
+  extends Actor
+    with ImplicitMaterializer {
 
   private[this] implicit val executionContext = context.dispatcher
 
   def receive: Receive = {
-    case HttpRequestCache.Refresh =>
+    case HttpRetriever.Refresh =>
       refresh()
 
     case response: HttpResponse =>
@@ -56,12 +55,12 @@ class HttpRequestCache(recipient: ActorRef, http: HttpExt, targetUri: String) ex
     recipient ! response
 
     val cacheTime = calculateCacheTime(response.headers)
-    val skewedCacheTime = cacheTime - HttpRequestCache.RefreshSkew
+    val skewedCacheTime = cacheTime - HttpRetriever.RefreshSkew
     val refreshTime =
-      if(cacheTime > 0) math.max(HttpRequestCache.MinimumRefresh, skewedCacheTime)
-      else HttpRequestCache.DefaultRefresh
+      if(cacheTime > 0) math.max(HttpRetriever.MinimumRefresh, skewedCacheTime)
+      else HttpRetriever.DefaultRefresh
 
-    context.system.scheduler.scheduleOnce(refreshTime.seconds, self, HttpRequestCache.Refresh)
+    context.system.scheduler.scheduleOnce(refreshTime.seconds, self, HttpRetriever.Refresh)
   }
 
   private[this] def calculateCacheTime(httpHeaders: Seq[HttpHeader]) = {
@@ -99,7 +98,7 @@ class HttpRequestCache(recipient: ActorRef, http: HttpExt, targetUri: String) ex
     val maybeHeader = httpHeaders.find(header => header.is(Expires.lowercaseName))
 
     maybeHeader.map { header =>
-      val expirationDate = HttpRequestCache.HttpDateFormat.parseDateTime(header.value)
+      val expirationDate = HttpRetriever.HttpDateFormat.parseDateTime(header.value)
 
       Seconds.secondsBetween(DateTime.now, expirationDate).getSeconds
     }

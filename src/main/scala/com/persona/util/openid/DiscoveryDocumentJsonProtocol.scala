@@ -2,9 +2,9 @@ package com.persona.util.openid
 
 import spray.json._
 
-trait OpenIdDiscoveryDocumentJsonProtocol extends DefaultJsonProtocol {
+trait DiscoveryDocumentJsonProtocol extends DefaultJsonProtocol {
 
-  implicit object OpenIdDiscoveryDocumentJsonFormat extends RootJsonFormat[OpenIdDiscoveryDocument] {
+  implicit object DiscoveryDocumentJsonFormat extends RootJsonFormat[DiscoveryDocument] {
 
     def readIssuer(openIdDiscoveryDocument: JsObject): String = {
       openIdDiscoveryDocument.getFields("issuer") match {
@@ -13,7 +13,7 @@ trait OpenIdDiscoveryDocumentJsonProtocol extends DefaultJsonProtocol {
       }
     }
 
-    def writeIssuer(openIdDiscoveryDocument: OpenIdDiscoveryDocument): JsField = {
+    def writeIssuer(openIdDiscoveryDocument: DiscoveryDocument): JsField = {
       "issuer" -> JsString(openIdDiscoveryDocument.issuer)
     }
 
@@ -24,20 +24,20 @@ trait OpenIdDiscoveryDocumentJsonProtocol extends DefaultJsonProtocol {
       }
     }
 
-    def writeJwksUri(openIdDiscoveryDocument: OpenIdDiscoveryDocument): JsField = {
+    def writeJwksUri(openIdDiscoveryDocument: DiscoveryDocument): JsField = {
       "jwks_uri" -> JsString(openIdDiscoveryDocument.jwksUri)
     }
 
-    def read(openIdDiscoveryDocument: JsValue): OpenIdDiscoveryDocument = {
+    def read(openIdDiscoveryDocument: JsValue): DiscoveryDocument = {
       val openIdDiscoveryDocumentAsJsObject = openIdDiscoveryDocument.asJsObject
 
       val issuer = readIssuer(openIdDiscoveryDocumentAsJsObject)
       val jwksUri = readJwksUri(openIdDiscoveryDocumentAsJsObject)
 
-      new OpenIdDiscoveryDocument(issuer, jwksUri)
+      new DiscoveryDocument(issuer, jwksUri)
     }
 
-    def write(openIdDiscoveryDocument: OpenIdDiscoveryDocument): JsValue = {
+    def write(openIdDiscoveryDocument: DiscoveryDocument): JsValue = {
       val issuer = writeIssuer(openIdDiscoveryDocument)
       val jsonJwksUri = writeJwksUri(openIdDiscoveryDocument)
 

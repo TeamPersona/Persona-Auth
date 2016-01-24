@@ -1,6 +1,6 @@
 package com.persona.service.authentication.google
 
-import akka.actor.{Props, ActorSystem, ActorRef, Actor}
+import akka.actor._
 import akka.http.scaladsl.HttpExt
 import akka.pattern.ask
 import akka.util.Timeout
@@ -10,10 +10,8 @@ import com.nimbusds.jwt.JWT
 import com.nimbusds.oauth2.sdk.id.{ClientID, Issuer}
 import com.nimbusds.openid.connect.sdk.validators.IDTokenValidator
 import com.persona.util.actor.ActorWrapper
-import com.persona.util.jwk.OpenIdDiscoveryDocumentJwkCache
-import com.persona.util.openid.OpenIdDiscoveryDocumentCache
+import com.persona.util.jwk.DiscoveryDocumentJwkRetriever
 
-import scala.collection.JavaConversions._
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
@@ -24,59 +22,61 @@ private object GoogleAuthServiceActor {
 
 }
 
-private class GoogleAuthServiceActor(
-  discoveryDocumentUrl: String,
-  clientID: String,
-  http: HttpExt) extends Actor {
+private class GoogleAuthServiceActor(clientID: String, http: HttpExt, discoveryUrl: String)
+  extends Actor
+    with Stash {
+
+  context.actorOf(Props(new DiscoveryDocumentJwkRetriever(self, http, discoveryUrl)))
 
   private[this] implicit val executionContext = context.dispatcher
-  private[this] val discoveryDocumentCache = OpenIdDiscoveryDocumentCache(context.system, http, discoveryDocumentUrl)
-  private[this] val jwkCache = OpenIdDiscoveryDocumentJwkCache(context.system, discoveryDocumentCache, http)
+  private[this] var validators = List.empty[IDTokenValidator]
 
   def receive: Receive = {
     case GoogleAuthServiceActor.Authenticate(idToken) =>
-      val actor = sender
+      stash()
 
-      discoveryDocumentCache.get.map { discoveryDocument =>
-        jwkCache.get.map { jwks =>
-          val v1tokenValidator = new IDTokenValidator(
-            new Issuer("accounts.google.com"),
-            new ClientID(clientID),
-            JWSAlgorithm.RS256,
-            new JWKSet(jwks.toList)
-          )
+    case jwkSet: JWKSet =>
+      update(jwkSet)
+      unstashAll()
+      context.become(initializedReceive)
+  }
 
-          val v1validation = Try(v1tokenValidator.validate(idToken, null))
-
-          if(v1validation.isSuccess) {
-            actor ! true
-          } else {
-            val v2tokenValidator = new IDTokenValidator(
-              new Issuer(discoveryDocument.issuer),
-              new ClientID(clientID),
-              JWSAlgorithm.RS256,
-              new JWKSet(jwks.toList)
-            )
-
-            val v2validation = Try(v2tokenValidator.validate(idToken, null))
-
-            actor ! v2validation.isSuccess
-          }
-        }
+  def initializedReceive: Receive = {
+    case GoogleAuthServiceActor.Authenticate(idToken) =>
+      val authenticated = validators.exists { validator =>
+        Try(validator.validate(idToken, null)).isSuccess
       }
+
+      sender ! authenticated
+
+    case jwkSet: JWKSet =>
+      update(jwkSet)
+  }
+
+  private[this] def update(jwkSet: JWKSet) = {
+    validators = GoogleAuthService.Issuers.map { issuer =>
+      new IDTokenValidator(
+        new Issuer(issuer),
+        new ClientID(clientID),
+        JWSAlgorithm.RS256,
+        jwkSet
+      )
+    }
   }
 
 }
 
 object GoogleAuthService {
 
-  val AuthenticateTimeout = Timeout(60.seconds)
-  private val GoogleDiscoveryDocumentUrl = "https://accounts.google.com/.well-known/openid-configuration"
+  private val AuthenticateTimeout = Timeout(60.seconds)
+
+  val DiscoveryDocumentUrl = "https://accounts.google.com/.well-known/openid-configuration"
+  val Issuers = List("https://accounts.google.com", "accounts.google.com")
 
   def apply(actorSystem: ActorSystem, clientID: String, http: HttpExt): GoogleAuthService = {
     val actor = actorSystem.actorOf(
       Props(
-        new GoogleAuthServiceActor(GoogleAuthService.GoogleDiscoveryDocumentUrl, clientID, http)
+        new GoogleAuthServiceActor(clientID, http, GoogleAuthService.DiscoveryDocumentUrl)
       )
     )
 
