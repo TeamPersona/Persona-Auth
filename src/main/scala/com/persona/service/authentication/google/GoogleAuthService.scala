@@ -73,7 +73,7 @@ object GoogleAuthService {
   val DiscoveryDocumentUrl = "https://accounts.google.com/.well-known/openid-configuration"
   val Issuers = List("https://accounts.google.com", "accounts.google.com")
 
-  def apply(actorSystem: ActorSystem, clientID: String, http: HttpExt): GoogleAuthService = {
+  def apply(clientID: String, http: HttpExt)(implicit actorSystem: ActorSystem): GoogleAuthService = {
     val actor = actorSystem.actorOf(
       Props(
         new GoogleAuthServiceActor(clientID, http, GoogleAuthService.DiscoveryDocumentUrl)

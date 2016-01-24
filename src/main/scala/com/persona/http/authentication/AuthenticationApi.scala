@@ -1,17 +1,27 @@
 package com.persona.http.authentication
 
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
+import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.Directives._
-import com.nimbusds.jwt.JWT
+import com.nimbusds.jwt.{SignedJWT, JWT}
 import com.persona.service.authentication.facebook.FacebookAuthService
 import com.persona.service.authentication.google.GoogleAuthService
 import com.persona.service.authentication.{PersonaAuthService, BasicAuthJsonProtocol, BasicAuth}
 
-class AuthenticationApi(
-  personaAuthService: PersonaAuthService,
-  facebookAuthService: FacebookAuthService,
-  googleAuthService: GoogleAuthService) extends SprayJsonSupport
-                                        with BasicAuthJsonProtocol {
+import scala.concurrent.ExecutionContext
+import scala.util.{Try, Failure, Success}
+
+class AuthenticationApi
+  (
+    personaAuthService: PersonaAuthService,
+    facebookAuthService: FacebookAuthService,
+    googleAuthService: GoogleAuthService
+  )
+  (
+    implicit executionContext: ExecutionContext
+  )
+  extends SprayJsonSupport
+    with BasicAuthJsonProtocol {
 
   val route = {
     pathPrefix("auth" / "v1") {
@@ -32,12 +42,17 @@ class AuthenticationApi(
       path("google") {
         pathEndOrSingleSlash {
           post {
-            complete("Test")
-            /*
-            formFields("id_token").as[JWT] { idToken =>
-              complete(googleAuthService.authenticate(idToken))
+            formField("id_token") { jwt =>
+              Try(SignedJWT.parse(jwt)) match {
+                case Success(idToken) =>
+                  onComplete(googleAuthService.authenticate(idToken)) {
+                    case Success(authenticationResult) => complete(authenticationResult.toString)
+                    case _ => complete(StatusCodes.InternalServerError)
+                  }
+
+                case _ => complete(StatusCodes.BadRequest)
+              }
             }
-            */
           }
         }
       }
