@@ -21,7 +21,6 @@ import com.persona.service.authorization.AuthorizationService
 import com.persona.service.bank.{DataItemValidator, CassandraBankDAO, JsonDataSchemaLoader, BankService}
 import com.persona.service.offer.{OfferService, CassandraOfferDAO}
 import com.persona.service.chat.ChatService
-
 import com.typesafe.config.Config
 
 import scala.concurrent.ExecutionContext
