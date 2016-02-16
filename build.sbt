@@ -18,6 +18,8 @@ libraryDependencies ++= {
   val nscalaTimeV = "2.6.0"
   val phantomV = "1.11.0"
   val scalazV = "7.1.3"
+  val slickV = "3.1.1"
+  val postgresV = "9.4.1207"
 
   Seq(
     "com.typesafe.akka" %% "akka-stream-experimental" % akkaHttpV,
