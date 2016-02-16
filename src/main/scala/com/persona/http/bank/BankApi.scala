@@ -5,16 +5,13 @@ import java.util.UUID
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.Directives._
-
 import com.persona.service.account.Account
-import com.persona.service.bank.{DataItem, BankService, DataItemJsonProtocol}
+import com.persona.service.bank.{BankService, DataItemJsonProtocol, RawDataItem}
 import com.persona.util.PersonaError
+import spray.json._
 
 import scala.concurrent.ExecutionContext
 import scala.util.Success
-
-import spray.json._
-
 import scalaz.NonEmptyList
 
 class BankApi(bankService: BankService)(implicit ec: ExecutionContext)
@@ -25,11 +22,12 @@ class BankApi(bankService: BankService)(implicit ec: ExecutionContext)
     pathPrefix("bank") {
       pathEndOrSingleSlash {
         post {
-          entity(as[DataItem]) { item =>
+          entity(as[RawDataItem]) { rawDataItem =>
+            val dataItem = rawDataItem.process()
             val test_uuid = UUID.fromString("da73919b-3650-4cc7-be06-b74ef16c4b3a")
             val test_account = new Account(test_uuid)
 
-            onComplete(bankService.saveInformation(test_account, item)) {
+            onComplete(bankService.saveInformation(test_account, dataItem)) {
               case Success(result) =>
                 result.fold(parseErrors => {
                   complete(StatusCodes.BadRequest, generateErrorJson(parseErrors))

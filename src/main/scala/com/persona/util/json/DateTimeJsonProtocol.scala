@@ -11,7 +11,7 @@ trait DateTimeJsonProtocol {
 
     def read(dateTime: JsValue): DateTime = {
       dateTime match {
-        case JsNumber(millis) => new DateTime(millis)
+        case JsNumber(millis) => new DateTime(millis.longValue)
         case _ => throw new DeserializationException("Invalid date time")
       }
     }
