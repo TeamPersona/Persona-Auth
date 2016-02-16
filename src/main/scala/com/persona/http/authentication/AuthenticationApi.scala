@@ -3,13 +3,13 @@ package com.persona.http.authentication
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.Directives._
-import com.nimbusds.jwt.{SignedJWT, JWT}
+import com.nimbusds.jwt.SignedJWT
 import com.persona.service.authentication.facebook.FacebookAuthService
 import com.persona.service.authentication.google.GoogleAuthService
-import com.persona.service.authentication.{PersonaAuthService, BasicAuthJsonProtocol, BasicAuth}
+import com.persona.service.authentication.{BasicAuth, BasicAuthJsonProtocol, PersonaAuthService}
 
 import scala.concurrent.ExecutionContext
-import scala.util.{Try, Failure, Success}
+import scala.util.{Success, Try}
 
 class AuthenticationApi
   (
