@@ -24,7 +24,7 @@ class AuthenticationApi
     with BasicAuthJsonProtocol {
 
   val route = {
-    pathPrefix("auth" / "v1") {
+    pathPrefix("authenticate") {
       pathEndOrSingleSlash {
         post {
           formFields("id", "password").as(BasicAuth) { basicAuth =>
