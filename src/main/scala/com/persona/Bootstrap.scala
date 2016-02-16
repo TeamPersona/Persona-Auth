@@ -3,6 +3,7 @@ package com.persona
 import akka.actor.ActorSystem
 import akka.http.scaladsl.HttpExt
 import akka.http.scaladsl.server.Directives._
+import com.persona.http.account.AccountApi
 import com.persona.http.authentication.AuthenticationApi
 import com.persona.http.authorization.AuthorizationApi
 import com.persona.http.bank.BankApi
@@ -27,6 +28,8 @@ class Bootstrap
   private[this] val authorizationService = new AuthorizationService
   private[this] val authorizationApi = new AuthorizationApi(authorizationService)
 
+  private[this] val accountApi = new AccountApi
+
   private[this] val personaAuthService = new PersonaAuthService
   private[this] val facebookAuthService = new FacebookAuthService
   private[this] val googleAuthService = GoogleAuthService(googleClientId, http)
@@ -47,6 +50,7 @@ class Bootstrap
   private[this] val offerApi = new OfferApi(offerService)
 
   val routes = {
+    accountApi.route ~
     authenticationApi.route ~
     authorizationApi.route ~
     bankApi.route ~

@@ -24,10 +24,10 @@ class BankApi(bankService: BankService)(implicit ec: ExecutionContext)
         post {
           entity(as[RawDataItem]) { rawDataItem =>
             val dataItem = rawDataItem.process()
-            val test_uuid = UUID.fromString("da73919b-3650-4cc7-be06-b74ef16c4b3a")
-            val test_account = new Account(test_uuid)
+            val testId = UUID.fromString("da73919b-3650-4cc7-be06-b74ef16c4b3a")
+            val testAccount = new Account(testId)
 
-            onComplete(bankService.saveInformation(test_account, dataItem)) {
+            onComplete(bankService.saveInformation(testAccount, dataItem)) {
               case Success(result) =>
                 result.fold(parseErrors => {
                   complete(StatusCodes.BadRequest, generateErrorJson(parseErrors))
@@ -40,10 +40,10 @@ class BankApi(bankService: BankService)(implicit ec: ExecutionContext)
           }
         } ~
         get {
-          val test_uuid = UUID.fromString("da73919b-3650-4cc7-be06-b74ef16c4b3a")
-          val test_account = new Account(test_uuid)
+          val testId = UUID.fromString("da73919b-3650-4cc7-be06-b74ef16c4b3a")
+          val testAccount = new Account(testId)
 
-          onComplete(bankService.listInformation(test_account)) {
+          onComplete(bankService.listInformation(testAccount)) {
             case Success(dataItems) => complete(dataItems.toJson)
             case _ => complete(StatusCodes.InternalServerError)
           }
