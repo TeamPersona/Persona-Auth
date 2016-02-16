@@ -6,7 +6,7 @@ import com.persona.service.chat.ChatService
 class ChatApi(chatService: ChatService) {
 
   val route = get {
-    pathPrefix("chat" / IntNumber) { offerId =>
+    pathPrefix("chat" / JavaUUID) { offerId =>
       pathEndOrSingleSlash {
         parameter('userid) { username =>
           chatService.chat(offerId, username)
