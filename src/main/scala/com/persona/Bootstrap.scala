@@ -3,6 +3,7 @@ package com.persona
 import akka.actor.ActorSystem
 import akka.http.scaladsl.HttpExt
 import akka.http.scaladsl.server.Directives._
+import akka.stream.Materializer
 import com.persona.http.account.AccountApi
 import com.persona.http.authentication.AuthenticationApi
 import com.persona.http.authorization.AuthorizationApi
