@@ -3,14 +3,19 @@ package com.persona
 import akka.actor.ActorSystem
 import akka.http.scaladsl.HttpExt
 import akka.http.scaladsl.server.Directives._
+import akka.stream.Materializer
 import com.persona.http.authentication.AuthenticationApi
 import com.persona.http.authorization.AuthorizationApi
+
+import com.persona.http.chat.ChatApi
 import com.persona.http.bank.BankApi
 import com.persona.http.offer.OfferApi
+
 import com.persona.service.authentication.PersonaAuthService
 import com.persona.service.authentication.facebook.FacebookAuthService
 import com.persona.service.authentication.google.GoogleAuthService
 import com.persona.service.authorization.AuthorizationService
+import com.persona.service.chat.ChatService
 import com.persona.service.bank.{DataItemValidator, CassandraBankDAO, JsonDataSchemaLoader, BankService}
 import com.persona.service.offer.{OfferService, CassandraOfferDAO}
 import com.typesafe.config.Config
@@ -19,7 +24,7 @@ import scala.concurrent.ExecutionContext
 
 class Bootstrap
   (config: Config, http: HttpExt)
-  (implicit actorSystem: ActorSystem, executionContext: ExecutionContext) {
+  (implicit actorSystem: ActorSystem, executionContext: ExecutionContext, materializer: Materializer) {
 
   private[this] val personaConfig = config.getConfig("persona")
   private[this] val googleClientId = personaConfig.getString("google_client_id")
@@ -46,9 +51,13 @@ class Bootstrap
   private[this] val offerService = OfferService(offerDAO)
   private[this] val offerApi = new OfferApi(offerService)
 
+  private[this] val chatServce = new ChatService
+  private[this] val chatApi = new ChatApi(chatServce)
+
   val routes = {
     authenticationApi.route ~
     authorizationApi.route ~
+    chatApi.route ~
     bankApi.route ~
     offerApi.route
   }

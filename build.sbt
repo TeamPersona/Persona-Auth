@@ -16,6 +16,8 @@ libraryDependencies ++= {
   val scalaMockV = "3.2.2"
   val nimbusOAuth = "5.1"
   val nscalaTimeV = "2.6.0"
+  val slickV = "3.1.1"
+  val postgresV = "9.4.1207"
   val phantomV = "1.11.0"
   val scalazV = "7.1.3"
 
@@ -25,6 +27,8 @@ libraryDependencies ++= {
     "com.typesafe.akka" %% "akka-http-experimental" % akkaHttpV,
     "com.typesafe.akka" %% "akka-http-spray-json-experimental" % akkaHttpV,
     "com.typesafe.akka" %% "akka-http-testkit-experimental" % akkaHttpV,
+    "com.typesafe.slick" %% "slick" % slickV,
+    "org.postgresql" % "postgresql" % postgresV,
     "org.scalatest" %% "scalatest" % scalaTestV % "test",
     "org.scalamock" %% "scalamock-scalatest-support" % scalaMockV % "test",
     "com.nimbusds" % "oauth2-oidc-sdk" % nimbusOAuth,
